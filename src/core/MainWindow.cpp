@@ -23,7 +23,7 @@
 #include "dialogs/AboutDialog.h"
 #include "dialogs/RenameDialog.h"
 #include "dialogs/preferences/PreferencesDialog.h"
-#include "dialogs/OpenFileDialog.h"
+#include "dialogs/MapFileDialog.h"
 #include "dialogs/AsyncTaskDialog.h"
 
 // Widgets Headers
@@ -132,9 +132,18 @@ void MainWindow::initUI()
 {
     ui->setupUi(this);
 
+    // Initialize context menu extensions for plugins
+    disassemblyContextMenuExtensions = new QMenu(tr("Plugins"), this);
+    addressableContextMenuExtensions = new QMenu(tr("Plugins"), this);
+
     connect(ui->actionExtraGraph, &QAction::triggered, this, &MainWindow::addExtraGraph);
     connect(ui->actionExtraDisassembly, &QAction::triggered, this, &MainWindow::addExtraDisassembly);
     connect(ui->actionExtraHexdump, &QAction::triggered, this, &MainWindow::addExtraHexdump);
+    connect(ui->actionCommitChanges, &QAction::triggered, this, [this]() {
+        Core()->commitWriteCache();
+    });
+    ui->actionCommitChanges->setEnabled(false);
+    connect(Core(), &CutterCore::ioCacheChanged, ui->actionCommitChanges, &QAction::setEnabled);
 
     widgetTypeToConstructorMap.insert(GraphWidget::getWidgetType(), getNewInstance<GraphWidget>);
     widgetTypeToConstructorMap.insert(DisassemblyWidget::getWidgetType(), getNewInstance<DisassemblyWidget>);
@@ -193,7 +202,7 @@ void MainWindow::initUI()
     initBackForwardMenu();
 
     /* Setup plugins interfaces */
-    for (auto plugin : Plugins()->getPlugins()) {
+    for (auto &plugin : Plugins()->getPlugins()) {
         plugin->setupInterface(this);
     }
 
@@ -218,6 +227,9 @@ void MainWindow::initToolBar()
 
     DebugActions *debugActions = new DebugActions(ui->mainToolBar, this);
     // Debug menu
+    auto debugViewAction = ui->menuDebug->addAction(tr("View"));
+    debugViewAction->setMenu(ui->menuAddDebugWidgets);
+    ui->menuDebug->addSeparator();
     ui->menuDebug->addAction(debugActions->actionStart);
     ui->menuDebug->addAction(debugActions->actionStartEmul);
     ui->menuDebug->addAction(debugActions->actionAttach);
@@ -405,11 +417,6 @@ void MainWindow::addExtraWidget(CutterDockWidget *extraDock)
     restoreExtraDock.restoreWidth(extraDock->widget());
 }
 
-/**
- * @brief Getter for MainWindow's different menus
- * @param type The type which represents the desired menu
- * @return The requested menu or nullptr if "type" is invalid
-**/
 QMenu *MainWindow::getMenuByType(MenuType type)
 {
     switch (type) {
@@ -525,7 +532,7 @@ void MainWindow::displayInitialOptionsDialog(const InitialOptions &options, bool
 
 void MainWindow::openProject(const QString &project_name)
 {
-    QString filename = core->cmd("Pi " + project_name);
+    QString filename = core->cmdRaw("Pi " + project_name);
     setFilename(filename.trimmed());
 
     core->openProject(project_name);
@@ -540,7 +547,7 @@ void MainWindow::finalizeOpen()
     refreshAll();
 
     // Add fortune message
-    core->message("\n" + core->cmd("fo"));
+    core->message("\n" + core->cmdRaw("fo"));
     showMaximized();
 
 
@@ -619,6 +626,24 @@ void MainWindow::setFilename(const QString &fn)
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+
+    // Check if there are uncommitted changes
+    if (core->isIOCacheEnabled() && !core->cmdj("wcj").array().isEmpty()) {
+
+        QMessageBox::StandardButton ret = QMessageBox::question(this, APPNAME,
+                                                                tr("It seems that you have changes or patches that are not committed to the file.\n"
+                                                                "Do you want to commit them now?"),
+                                                                (QMessageBox::StandardButtons)(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel));
+        if (ret == QMessageBox::Cancel) {
+            event->ignore();
+            return;
+        }
+
+        if (ret == QMessageBox::Save) {
+            core->commitWriteCache();
+        } 
+    }
+
     QMessageBox::StandardButton ret = QMessageBox::question(this, APPNAME,
                                                             tr("Do you really want to exit?\nSave your project before closing!"),
                                                             (QMessageBox::StandardButtons)(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel));
@@ -674,7 +699,8 @@ void MainWindow::readSettingsOrDefault()
     // make sure all DockWidgets are part of the MainWindow
     // also show them, so newly installed plugin widgets are shown right away
     for (auto dockWidget : dockWidgets) {
-        if (dockWidgetArea(dockWidget) == Qt::DockWidgetArea::NoDockWidgetArea) {
+        if (dockWidgetArea(dockWidget) == Qt::DockWidgetArea::NoDockWidgetArea &&
+            !isDebugWidget(dockWidget)) {
             addDockWidget(Qt::DockWidgetArea::TopDockWidgetArea, dockWidget);
             dockWidget->show();
         }
@@ -860,6 +886,18 @@ void MainWindow::updateDockActionsChecked()
     for (auto i = dockWidgetsOfAction.constBegin(); i != dockWidgetsOfAction.constEnd(); i++) {
         updateDockActionChecked(i.key());
     }
+}
+
+bool MainWindow::isDebugWidget(QDockWidget *dock) const
+{
+    return dock == stackDock ||
+           dock == registersDock ||
+           dock == backtraceDock ||
+           dock == threadsDock ||
+           dock == memoryMapDock ||
+           dock == breakpointDock ||
+           dock == processesDock ||
+           dock == registerRefsDock;
 }
 
 MemoryWidgetType MainWindow::getMemoryWidgetTypeToRestore()
@@ -1192,7 +1230,12 @@ void MainWindow::showDebugDocks()
 
 void MainWindow::enableDebugWidgetsMenu(bool enable)
 {
-    ui->menuAddDebugWidgets->setEnabled(enable);
+    for (QAction *action : ui->menuAddDebugWidgets->actions()) {
+        // The breakpoints menu should be available outside of debug
+        if (!action->text().contains("Breakpoints")) {
+            action->setEnabled(enable);
+        }
+    }
 }
 
 void MainWindow::resetToDefaultLayout()
@@ -1350,9 +1393,9 @@ void MainWindow::on_actionRun_Script_triggered()
  * @brief MainWindow::on_actionOpen_triggered
  * Open a file as in "load (add) a file in current session".
  */
-void MainWindow::on_actionOpen_triggered()
+void MainWindow::on_actionMap_triggered()
 {
-    OpenFileDialog dialog(this);
+    MapFileDialog dialog(this);
     dialog.exec();
 }
 
@@ -1508,6 +1551,8 @@ void MainWindow::on_actionExport_as_code_triggered()
     tempConfig.set("io.va", false);
     QTextStream fileOut(&file);
     QString &cmd = cmdMap[dialog.selectedNameFilter()];
+
+    // Use cmd because cmdRaw would not handle such input
     fileOut << Core()->cmd(cmd + " $s @ 0");
 }
 
@@ -1583,6 +1628,20 @@ bool MainWindow::eventFilter(QObject *, QEvent *event)
     return false;
 }
 
+bool MainWindow::event(QEvent *event)
+{
+    if (event->type() == QEvent::FontChange
+        || event->type() == QEvent::StyleChange
+        || event->type() == QEvent::PaletteChange) {
+#if QT_VERSION < QT_VERSION_CHECK(5,10,0)
+        QMetaObject::invokeMethod(Config(), "refreshFont", Qt::ConnectionType::QueuedConnection);
+#else
+        QMetaObject::invokeMethod(Config(), &Configuration::refreshFont, Qt::ConnectionType::QueuedConnection);
+#endif
+    }
+    return QMainWindow::event(event);
+}
+
 /**
  * @brief Show a warning message box.
  *
@@ -1629,4 +1688,16 @@ void MainWindow::onZoomOut()
 void MainWindow::onZoomReset()
 {
   Config()->setZoomFactor(1.0);
+}
+
+QMenu *MainWindow::getContextMenuExtensions(ContextMenuType type)
+{
+    switch (type) {
+    case ContextMenuType::Disassembly:
+        return disassemblyContextMenuExtensions;
+    case ContextMenuType::Addressable:
+        return addressableContextMenuExtensions;
+    default:
+        return nullptr;
+    }
 }

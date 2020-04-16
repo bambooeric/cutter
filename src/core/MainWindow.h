@@ -101,6 +101,11 @@ public:
 
     void addPluginDockWidget(QDockWidget *dockWidget, QAction *action);
     enum class MenuType { File, Edit, View, Windows, Debug, Help, Plugins };
+    /**
+     * @brief Getter for MainWindow's different menus
+     * @param type The type which represents the desired menu
+     * @return The requested menu or nullptr if "type" is invalid
+     */
     QMenu *getMenuByType(MenuType type);
     void addMenuFileAction(QAction *action);
 
@@ -119,6 +124,15 @@ public:
     QMenu *createShowInMenu(QWidget *parent, RVA address);
     void setCurrentMemoryWidget(MemoryDockWidget* memoryWidget);
     MemoryDockWidget* getLastMemoryWidget();
+
+    /* Context menu plugins */
+    enum class ContextMenuType { Disassembly, Addressable };
+    /**
+     * @brief Fetches the pointer to a context menu extension of type
+     * @param type - the type of the context menu
+     * @return plugins submenu of the selected context menu
+     */
+    QMenu *getContextMenuExtensions(ContextMenuType type);
 
 public slots:
     void finalizeOpen();
@@ -167,7 +181,7 @@ private slots:
     void on_actionBackward_triggered();
     void on_actionForward_triggered();
 
-    void on_actionOpen_triggered();
+    void on_actionMap_triggered();
 
     void on_actionTabs_on_Top_triggered();
 
@@ -193,6 +207,7 @@ private slots:
 
     void mousePressEvent(QMouseEvent *event) override;
     bool eventFilter(QObject *object, QEvent *event) override;
+    bool event(QEvent *event) override;
     void toggleDebugView();
     void chooseThemeIcons();
 
@@ -257,6 +272,9 @@ private:
     QDockWidget        *breakpointDock = nullptr;
     QDockWidget        *registerRefsDock = nullptr;
 
+    QMenu *disassemblyContextMenuExtensions = nullptr;
+    QMenu *addressableContextMenuExtensions = nullptr;
+
     void initUI();
     void initToolBar();
     void initDocks();
@@ -288,6 +306,12 @@ private:
     void updateDockActionsChecked();
     void setOverviewData();
     bool isOverviewActive();
+    /**
+     * @brief Check if a widget is one of debug specific dock widgets.
+     * @param dock
+     * @return true for debug specific widgets, false for all other including common dock widgets.
+     */
+    bool isDebugWidget(QDockWidget *dock) const;
 
     MemoryWidgetType getMemoryWidgetTypeToRestore();
 

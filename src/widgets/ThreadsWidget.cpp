@@ -54,7 +54,7 @@ ThreadsWidget::ThreadsWidget(MainWindow *main, QAction *action) :
     connect(ui->quickFilterView, &QuickFilterView::filterTextChanged, modelFilter,
             &ThreadsFilterModel::setFilterWildcard);
     connect(Core(), &CutterCore::refreshAll, this, &ThreadsWidget::updateContents);
-    connect(Core(), &CutterCore::seekChanged, this, &ThreadsWidget::updateContents);
+    connect(Core(), &CutterCore::registersChanged, this, &ThreadsWidget::updateContents);
     connect(Core(), &CutterCore::debugTaskStateChanged, this, &ThreadsWidget::updateContents);
     // Seek doesn't necessarily change when switching threads/processes
     connect(Core(), &CutterCore::switchedThread, this, &ThreadsWidget::updateContents);
@@ -71,16 +71,16 @@ void ThreadsWidget::updateContents()
         return;
     }
 
-    if (Core()->currentlyDebugging) {
-        setThreadsGrid();
-    } else {
+    if (!Core()->currentlyDebugging) {
         // Remove rows from the previous debugging session
         modelThreads->removeRows(0, modelThreads->rowCount());
+        return;
     }
 
-    if (Core()->isDebugTaskInProgress() || !Core()->currentlyDebugging) {
+    if (Core()->isDebugTaskInProgress()) {
         ui->viewThreads->setDisabled(true);
     } else {
+        setThreadsGrid();
         ui->viewThreads->setDisabled(false);
     }
 }

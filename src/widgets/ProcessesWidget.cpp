@@ -56,7 +56,7 @@ ProcessesWidget::ProcessesWidget(MainWindow *main, QAction *action) :
     connect(ui->quickFilterView, &QuickFilterView::filterTextChanged, modelFilter,
             &ProcessesFilterModel::setFilterWildcard);
     connect(Core(), &CutterCore::refreshAll, this, &ProcessesWidget::updateContents);
-    connect(Core(), &CutterCore::seekChanged, this, &ProcessesWidget::updateContents);
+    connect(Core(), &CutterCore::registersChanged, this, &ProcessesWidget::updateContents);
     connect(Core(), &CutterCore::debugTaskStateChanged, this, &ProcessesWidget::updateContents);
     // Seek doesn't necessarily change when switching processes
     connect(Core(), &CutterCore::switchedProcess, this, &ProcessesWidget::updateContents);
@@ -72,16 +72,16 @@ void ProcessesWidget::updateContents()
         return;
     }
 
-    if (Core()->currentlyDebugging) {
-        setProcessesGrid();
-    } else {
+    if (!Core()->currentlyDebugging) {
         // Remove rows from the previous debugging session
         modelProcesses->removeRows(0, modelProcesses->rowCount());
+        return;
     }
 
-    if (Core()->isDebugTaskInProgress() || !Core()->currentlyDebugging) {
+    if (Core()->isDebugTaskInProgress()) {
         ui->viewProcesses->setDisabled(true);
     } else {
+        setProcessesGrid();
         ui->viewProcesses->setDisabled(false);
     }
 }

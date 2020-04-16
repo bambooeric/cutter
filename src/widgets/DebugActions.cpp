@@ -110,6 +110,12 @@ DebugActions::DebugActions(QToolBar *toolBar, MainWindow *main) :
         actionContinueUntilCall, actionContinueUntilSyscall};
     toggleConnectionActions = {actionAttach, actionStartRemote};
 
+    connect(Core(), &CutterCore::debugProcessFinished, this, [ = ](int pid) {
+        QMessageBox msgBox;
+        msgBox.setText(tr("Debugged process exited (") + QString::number(pid) + ")");
+        msgBox.exec();
+    });
+
     connect(Core(), &CutterCore::debugTaskStateChanged, this, [ = ]() {
         bool disableToolbar = Core()->isDebugTaskInProgress();
         if (Core()->currentlyDebugging) {
@@ -185,6 +191,7 @@ DebugActions::DebugActions(QToolBar *toolBar, MainWindow *main) :
 
 void DebugActions::setButtonVisibleIfMainExists()
 {
+    // Use cmd because cmdRaw would not handle multiple commands concatenated
     int mainExists = Core()->cmd("f?sym.main; ??").toInt();
     // if main is not a flag we hide the continue until main button
     if (!mainExists) {
@@ -207,7 +214,7 @@ void DebugActions::showDebugWarning()
 
 void DebugActions::continueUntilMain()
 {
-    QString mainAddr = Core()->cmd("?v sym.main");
+    QString mainAddr = Core()->cmdRaw("?v sym.main");
     Core()->continueUntilDebug(mainAddr);
 }
 
@@ -231,6 +238,7 @@ void DebugActions::onAttachedRemoteDebugger(bool successfully)
         attachRemoteDialog();
     } else {
         delete remoteDialog;
+        remoteDialog = nullptr;
         attachRemoteDebugger();
     }
 }
@@ -296,7 +304,7 @@ void DebugActions::attachProcess(int pid)
 void DebugActions::startDebug()
 {
     // check if file is executable before starting debug
-    QString filename = Core()->getConfig("file.path").section(QLatin1Char(' '), 0, 0);
+    QString filename = Core()->getConfig("file.path");
 
     QFileInfo info(filename);
     if (!Core()->currentlyDebugging && !info.isExecutable()) {

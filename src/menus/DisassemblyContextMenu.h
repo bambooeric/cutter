@@ -2,6 +2,7 @@
 #define DISASSEMBLYCONTEXTMENU_H
 
 #include "core/Cutter.h"
+#include "common/IOModesController.h"
 #include <QMenu>
 #include <QKeySequence>
 
@@ -35,7 +36,6 @@ private slots:
     void on_actionJmpReverse_triggered();
     void on_actionEditBytes_triggered();
     void showReverseJmpQuery();
-    bool writeFailed();
 
     void on_actionCopy_triggered();
     void on_actionCopyAddr_triggered();
@@ -53,6 +53,7 @@ private slots:
     void on_actionDeleteFunction_triggered();
 
     void on_actionAddBreakpoint_triggered();
+    void on_actionAdvancedBreakpoint_triggered();
     void on_actionContinueUntil_triggered();
     void on_actionSetPC_triggered();
 
@@ -107,6 +108,7 @@ private:
     bool canCopy;
     QString curHighlightedWord; // The current highlighted word
     MainWindow *mainWindow;
+    IOModesController ioModesController;
 
     QList<QAction *> anonymousActions;
 
@@ -156,8 +158,11 @@ private:
 
     QMenu *debugMenu;
     QAction actionContinueUntil;
-    QAction actionAddBreakpoint;
     QAction actionSetPC;
+
+    QMenu *breakpointMenu;
+    QAction actionAddBreakpoint;
+    QAction actionAdvancedBreakpoint;
 
     QAction actionSetToCode;
 
@@ -176,6 +181,8 @@ private:
 
     QAction showInSubmenu;
     QList<QAction*> showTargetMenuActions;
+    QMenu *pluginMenu = nullptr;
+    QAction *pluginActionMenuAction = nullptr;
 
     // For creating anonymous entries (that are always visible)
     QAction *addAnonymousAction(QString name, const char *slot, QKeySequence shortcut);
@@ -193,6 +200,7 @@ private:
     void addSetAsMenu();
     void addSetToDataMenu();
     void addEditMenu();
+    void addBreakpointMenu();
     void addDebugMenu();
 
     struct ThingUsedHere {

@@ -30,7 +30,7 @@ BacktraceWidget::BacktraceWidget(MainWindow *main, QAction *action) :
     });
 
     connect(Core(), &CutterCore::refreshAll, this, &BacktraceWidget::updateContents);
-    connect(Core(), &CutterCore::seekChanged, this, &BacktraceWidget::updateContents);
+    connect(Core(), &CutterCore::registersChanged, this, &BacktraceWidget::updateContents);
     connect(Config(), &Configuration::fontsUpdated, this, &BacktraceWidget::fontsUpdatedSlot);
 }
 
@@ -38,9 +38,10 @@ BacktraceWidget::~BacktraceWidget() {}
 
 void BacktraceWidget::updateContents()
 {
-    if (!refreshDeferrer->attemptRefresh(nullptr)) {
+    if (!refreshDeferrer->attemptRefresh(nullptr) || Core()->isDebugTaskInProgress()) {
         return;
     }
+
     setBacktraceGrid();
 }
 

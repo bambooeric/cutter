@@ -124,6 +124,7 @@ static const QHash<QString, QVariant> asmOptions = {
     { "asm.tabs.off",       5 },
     { "asm.marks",          false },
     { "asm.refptr",         false },
+    { "asm.flags.real",     true },
     { "esil.breakoninvalid",true },
     { "graph.offset",       false}
 };
@@ -207,7 +208,7 @@ int Configuration::getNewFileLastClicked()
 
 void Configuration::resetAll()
 {
-    Core()->cmd("e-");
+    Core()->cmdRaw("e-");
     Core()->setSettings();
     // Delete the file so no extra configuration is in it.
     QFile settingsFile(s.fileName());
@@ -392,6 +393,11 @@ void Configuration::setFont(const QFont &font)
     emit fontsUpdated();
 }
 
+void Configuration::refreshFont()
+{
+    emit fontsUpdated();
+}
+
 qreal Configuration::getZoomFactor() const {
   qreal fontZoom = s.value("zoomFactor", 1.0).value<qreal>();
   return qMax(fontZoom, 0.1);
@@ -518,10 +524,10 @@ const QColor Configuration::getColor(const QString &name) const
 void Configuration::setColorTheme(const QString &theme)
 {
     if (theme == "default") {
-        Core()->cmd("ecd");
+        Core()->cmdRaw("ecd");
         s.setValue("theme", "default");
     } else {
-        Core()->cmd(QStringLiteral("eco %1").arg(theme));
+        Core()->cmdRaw(QStringLiteral("eco %1").arg(theme));
         s.setValue("theme", theme);
     }
 
@@ -701,3 +707,24 @@ void Configuration::setDecompilerAutoRefreshEnabled(bool enabled)
 {
     s.setValue("decompilerAutoRefresh", enabled);
 }
+
+bool Configuration::getBitmapTransparentState()
+{
+    return s.value("bitmapGraphExportTransparency", false).value<bool>();
+}
+
+double Configuration::getBitmapExportScaleFactor()
+{
+    return s.value("bitmapGraphExportScale", 1.0).value<double>();
+}
+
+void Configuration::setBitmapTransparentState(bool inputValueGraph)
+{
+    s.setValue("bitmapGraphExportTransparency", inputValueGraph);
+}
+
+void Configuration::setBitmapExportScaleFactor(double inputValueGraph)
+{
+    s.setValue("bitmapGraphExportScale", inputValueGraph);
+}
+

@@ -4,7 +4,7 @@
 
 class MainWindow;
 
-class CutterSeekable : public QObject
+class CUTTER_EXPORT CutterSeekable : public QObject
 {
     Q_OBJECT
 
@@ -19,8 +19,12 @@ public:
      * signal will be emitted.
      * In any case, CutterSeekable::seekableSeekChanged is emitted.
      * @param addr the location to seek at.
+     * @param type the type of seek wrt history (Undo, Redo, or New)
      */
-    void seek(RVA addr) { updateSeek(addr, false); }
+    void seek(RVA addr, CutterCore::SeekHistoryType type = CutterCore::SeekHistoryType::New)
+    {
+        updateSeek(addr, type, false);
+    }
 
     /**
      * @brief setSynchronization sets
@@ -45,7 +49,8 @@ public:
     bool isSynchronized();
 
     /**
-     * @brief seekToReference will seek to the function or the object which is referenced in a given offset
+     * @brief seekToReference will seek to the function or the object which is referenced in a given
+     * offset
      * @param offset - an address that contains a reference to jump to
      */
     void seekToReference(RVA offset);
@@ -66,7 +71,7 @@ private slots:
     /**
      * @brief onCoreSeekChanged
      */
-    void onCoreSeekChanged(RVA addr);
+    void onCoreSeekChanged(RVA addr, CutterCore::SeekHistoryType type);
 
 private:
     /**
@@ -90,9 +95,9 @@ private:
      * @brief internal method for changing the seek
      * @param localOnly whether the seek should be updated globally if synchronized
      */
-    void updateSeek(RVA addr, bool localOnly);
+    void updateSeek(RVA addr, CutterCore::SeekHistoryType type, bool localOnly);
 
 signals:
-    void seekableSeekChanged(RVA addr);
+    void seekableSeekChanged(RVA addr, CutterCore::SeekHistoryType type);
     void syncChanged();
 };

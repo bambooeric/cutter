@@ -12,7 +12,8 @@
 #include <QColor>
 #include "core/CutterCommon.h"
 
-struct FunctionDescription {
+struct FunctionDescription
+{
     RVA offset;
     RVA linearSize;
     RVA nargs;
@@ -26,12 +27,13 @@ struct FunctionDescription {
     bool contains(RVA addr) const
     {
         // TODO: this is not exactly correct in edge cases.
-        // r_anal_function_contains() does it right.
+        // rz_analysis_function_contains() does it right.
         return addr >= offset && addr < offset + linearSize;
     }
 };
 
-struct ImportDescription {
+struct ImportDescription
+{
     RVA plt;
     int ordinal;
     QString bind;
@@ -40,7 +42,8 @@ struct ImportDescription {
     QString libname;
 };
 
-struct ExportDescription {
+struct ExportDescription
+{
     RVA vaddr;
     RVA paddr;
     RVA size;
@@ -57,52 +60,58 @@ struct HeaderDescription
     QString name;
 };
 
-struct ZignatureDescription
+struct FlirtDescription
 {
-    QString name;
-    QString bytes;
-    RVA cc;
-    RVA nbbs;
-    RVA edges;
-    RVA ebbs;
-    RVA offset;
-    QStringList refs;
+    QString bin_name;
+    QString arch_name;
+    QString arch_bits;
+    QString base_name;
+    QString short_path;
+    QString file_path;
+    QString details;
+    QString n_modules;
 };
 
-struct TypeDescription {
+struct TypeDescription
+{
     QString type;
     int size;
     QString format;
     QString category;
 };
 
-struct SearchDescription {
+struct SearchDescription
+{
     RVA offset;
     int size;
     QString code;
     QString data;
 };
 
-struct SymbolDescription {
+struct SymbolDescription
+{
     RVA vaddr;
     QString bind;
     QString type;
     QString name;
 };
 
-struct CommentDescription {
+struct CommentDescription
+{
     RVA offset;
     QString name;
 };
 
-struct RelocDescription {
+struct RelocDescription
+{
     RVA vaddr;
     RVA paddr;
     QString type;
     QString name;
 };
 
-struct StringDescription {
+struct StringDescription
+{
     RVA vaddr;
     QString string;
     QString type;
@@ -111,18 +120,21 @@ struct StringDescription {
     ut32 size;
 };
 
-struct FlagspaceDescription {
+struct FlagspaceDescription
+{
     QString name;
 };
 
-struct FlagDescription {
+struct FlagDescription
+{
     RVA offset;
     RVA size;
     QString name;
     QString realname;
 };
 
-struct SectionDescription {
+struct SectionDescription
+{
     RVA vaddr;
     RVA paddr;
     RVA size;
@@ -132,7 +144,8 @@ struct SectionDescription {
     QString entropy;
 };
 
-struct SegmentDescription {
+struct SegmentDescription
+{
     RVA vaddr;
     RVA paddr;
     RVA size;
@@ -141,7 +154,8 @@ struct SegmentDescription {
     QString perm;
 };
 
-struct EntrypointDescription {
+struct EntrypointDescription
+{
     RVA vaddr;
     RVA paddr;
     RVA baddr;
@@ -150,7 +164,8 @@ struct EntrypointDescription {
     QString type;
 };
 
-struct XrefDescription {
+struct XrefDescription
+{
     RVA from;
     QString from_str;
     RVA to;
@@ -158,14 +173,16 @@ struct XrefDescription {
     QString type;
 };
 
-struct RBinPluginDescription {
+struct RzBinPluginDescription
+{
     QString name;
     QString description;
     QString license;
     QString type;
 };
 
-struct RIOPluginDescription {
+struct RzIOPluginDescription
+{
     QString name;
     QString description;
     QString license;
@@ -173,12 +190,15 @@ struct RIOPluginDescription {
     QList<QString> uris;
 };
 
-struct RCorePluginDescription {
+struct RzCorePluginDescription
+{
     QString name;
     QString description;
+    QString license;
 };
 
-struct RAsmPluginDescription {
+struct RzAsmPluginDescription
+{
     QString name;
     QString architecture;
     QString author;
@@ -188,57 +208,66 @@ struct RAsmPluginDescription {
     QString license;
 };
 
-struct DisassemblyLine {
+struct DisassemblyLine
+{
     RVA offset;
     QString text;
     RVA arrow;
 };
 
-struct BinClassBaseClassDescription {
+struct BinClassBaseClassDescription
+{
     QString name;
     RVA offset;
 };
 
-struct BinClassMethodDescription {
+struct BinClassMethodDescription
+{
     QString name;
     RVA addr = RVA_INVALID;
     st64 vtableOffset = -1;
 };
 
-struct BinClassFieldDescription {
+struct BinClassFieldDescription
+{
     QString name;
     RVA addr = RVA_INVALID;
 };
 
-struct BinClassDescription {
+struct BinClassDescription
+{
     QString name;
     RVA addr = RVA_INVALID;
     RVA vtableAddr = RVA_INVALID;
-    ut64 index = 0;
     QList<BinClassBaseClassDescription> baseClasses;
     QList<BinClassMethodDescription> methods;
     QList<BinClassFieldDescription> fields;
 };
 
-struct AnalMethodDescription {
+struct AnalysisMethodDescription
+{
     QString name;
+    QString realName;
     RVA addr;
     st64 vtableOffset;
 };
 
-struct AnalBaseClassDescription {
+struct AnalysisBaseClassDescription
+{
     QString id;
     RVA offset;
     QString className;
 };
 
-struct AnalVTableDescription {
+struct AnalysisVTableDescription
+{
     QString id;
     ut64 offset;
     ut64 addr;
 };
 
-struct ResourcesDescription {
+struct ResourcesDescription
+{
     QString name;
     RVA vaddr;
     ut64 index;
@@ -247,12 +276,14 @@ struct ResourcesDescription {
     QString lang;
 };
 
-struct VTableDescription {
+struct VTableDescription
+{
     RVA addr;
     QList<BinClassMethodDescription> methods;
 };
 
-struct BlockDescription {
+struct BlockDescription
+{
     RVA addr;
     RVA size;
     int flags;
@@ -264,14 +295,16 @@ struct BlockDescription {
     ut8 rwx;
 };
 
-struct BlockStatistics {
+struct BlockStatistics
+{
     RVA from;
     RVA to;
     RVA blocksize;
     QList<BlockDescription> blocks;
 };
 
-struct MemoryMapDescription {
+struct MemoryMapDescription
+{
     RVA addrStart;
     RVA addrEnd;
     QString name;
@@ -280,7 +313,8 @@ struct MemoryMapDescription {
     QString permission;
 };
 
-struct BreakpointDescription {
+struct BreakpointDescription
+{
     enum PositionType {
         Address,
         Named,
@@ -302,23 +336,73 @@ struct BreakpointDescription {
     bool enabled = true;
 };
 
-struct ProcessDescription {
+struct ProcessDescription
+{
+    bool current;
     int pid;
     int uid;
-    QString status;
+    int ppid;
+    RzDebugPidState status;
     QString path;
 };
 
-struct RefDescription {
+struct RefDescription
+{
     QString ref;
     QColor refColor;
 };
 
-struct VariableDescription {
-    enum class RefType { SP, BP, Reg };
-    RefType refType;
+struct VariableDescription
+{
+    RzAnalysisVarStorageType storageType;
     QString name;
     QString type;
+    QString value;
+};
+
+struct GlobalDescription
+{
+    RVA addr;
+    QString type;
+    QString name;
+};
+
+struct RegisterRefValueDescription
+{
+    QString name;
+    QString value;
+    QString ref;
+};
+
+struct Chunk
+{
+    RVA offset;
+    QString status;
+    int size;
+};
+
+struct Arena
+{
+    RVA offset;
+    QString type;
+    ut64 top;
+    ut64 last_remainder;
+    ut64 next;
+    ut64 next_free;
+    ut64 system_mem;
+    ut64 max_system_mem;
+};
+
+struct BasefindCoreStatusDescription
+{
+    size_t index;
+    ut32 percentage;
+};
+
+struct BasefindResultDescription
+{
+    RVA candidate;
+    ut32 score;
 };
 
 Q_DECLARE_METATYPE(FunctionDescription)
@@ -330,26 +414,27 @@ Q_DECLARE_METATYPE(RelocDescription)
 Q_DECLARE_METATYPE(StringDescription)
 Q_DECLARE_METATYPE(FlagspaceDescription)
 Q_DECLARE_METATYPE(FlagDescription)
+Q_DECLARE_METATYPE(GlobalDescription)
 Q_DECLARE_METATYPE(XrefDescription)
 Q_DECLARE_METATYPE(EntrypointDescription)
-Q_DECLARE_METATYPE(RBinPluginDescription)
-Q_DECLARE_METATYPE(RIOPluginDescription)
-Q_DECLARE_METATYPE(RCorePluginDescription)
-Q_DECLARE_METATYPE(RAsmPluginDescription)
+Q_DECLARE_METATYPE(RzBinPluginDescription)
+Q_DECLARE_METATYPE(RzIOPluginDescription)
+Q_DECLARE_METATYPE(RzCorePluginDescription)
+Q_DECLARE_METATYPE(RzAsmPluginDescription)
 Q_DECLARE_METATYPE(BinClassMethodDescription)
 Q_DECLARE_METATYPE(BinClassFieldDescription)
 Q_DECLARE_METATYPE(BinClassDescription)
 Q_DECLARE_METATYPE(const BinClassDescription *)
 Q_DECLARE_METATYPE(const BinClassMethodDescription *)
 Q_DECLARE_METATYPE(const BinClassFieldDescription *)
-Q_DECLARE_METATYPE(AnalBaseClassDescription)
-Q_DECLARE_METATYPE(AnalMethodDescription)
-Q_DECLARE_METATYPE(AnalVTableDescription)
+Q_DECLARE_METATYPE(AnalysisBaseClassDescription)
+Q_DECLARE_METATYPE(AnalysisMethodDescription)
+Q_DECLARE_METATYPE(AnalysisVTableDescription)
 Q_DECLARE_METATYPE(ResourcesDescription)
 Q_DECLARE_METATYPE(VTableDescription)
 Q_DECLARE_METATYPE(TypeDescription)
 Q_DECLARE_METATYPE(HeaderDescription)
-Q_DECLARE_METATYPE(ZignatureDescription)
+Q_DECLARE_METATYPE(FlirtDescription)
 Q_DECLARE_METATYPE(SearchDescription)
 Q_DECLARE_METATYPE(SectionDescription)
 Q_DECLARE_METATYPE(SegmentDescription)
@@ -359,5 +444,7 @@ Q_DECLARE_METATYPE(BreakpointDescription::PositionType)
 Q_DECLARE_METATYPE(ProcessDescription)
 Q_DECLARE_METATYPE(RefDescription)
 Q_DECLARE_METATYPE(VariableDescription)
+Q_DECLARE_METATYPE(BasefindCoreStatusDescription)
+Q_DECLARE_METATYPE(BasefindResultDescription)
 
 #endif // DESCRIPTIONS_H

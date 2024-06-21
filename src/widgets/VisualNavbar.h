@@ -6,6 +6,10 @@
 
 #include "core/Cutter.h"
 
+#include <rz_core.h>
+
+#include <memory>
+
 class MainWindow;
 class QGraphicsView;
 
@@ -13,7 +17,8 @@ class VisualNavbar : public QToolBar
 {
     Q_OBJECT
 
-    struct XToAddress {
+    struct XToAddress
+    {
         double x_start;
         double x_end;
         RVA address_from;
@@ -36,17 +41,18 @@ private slots:
     void on_seekChanged(RVA addr);
 
 private:
-    QGraphicsView     *graphicsView;
-    QGraphicsScene    *graphicsScene;
+    QGraphicsView *graphicsView;
+    QGraphicsScene *graphicsScene;
     QGraphicsRectItem *seekGraphicsItem;
     QGraphicsRectItem *PCGraphicsItem;
-    MainWindow        *main;
+    MainWindow *main;
 
-    BlockStatistics    stats;
-    unsigned int       statsWidth = 0;
-    unsigned int       previousWidth = 0;
+    UniquePtrC<RzCoreAnalysisStats, &rz_core_analysis_stats_free> stats;
+    unsigned int statsWidth = 0;
+    unsigned int previousWidth = 0;
 
     QList<XToAddress> xToAddress;
+    bool blockTooltip;
 
     RVA localXToAddress(double x);
     double addressToLocalX(RVA address);

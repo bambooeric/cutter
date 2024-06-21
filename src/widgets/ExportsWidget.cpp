@@ -7,8 +7,7 @@
 #include <QShortcut>
 
 ExportsModel::ExportsModel(QList<ExportDescription> *exports, QObject *parent)
-    : AddressableItemModel<QAbstractListModel>(parent),
-      exports(exports)
+    : AddressableItemModel<QAbstractListModel>(parent), exports(exports)
 {
 }
 
@@ -33,13 +32,15 @@ QVariant ExportsModel::data(const QModelIndex &index, int role) const
     case Qt::DisplayRole:
         switch (index.column()) {
         case ExportsModel::OffsetColumn:
-            return RAddressString(exp.vaddr);
+            return RzAddressString(exp.vaddr);
         case ExportsModel::SizeColumn:
-            return RSizeString(exp.size);
+            return RzSizeString(exp.size);
         case ExportsModel::TypeColumn:
             return exp.type;
         case ExportsModel::NameColumn:
             return exp.name;
+        case ExportsModel::CommentColumn:
+            return Core()->getCommentAt(exp.vaddr);
         default:
             return QVariant();
         }
@@ -63,6 +64,8 @@ QVariant ExportsModel::headerData(int section, Qt::Orientation, int role) const
             return tr("Type");
         case ExportsModel::NameColumn:
             return tr("Name");
+        case ExportsModel::CommentColumn:
+            return tr("Comment");
         default:
             return QVariant();
         }
@@ -95,7 +98,7 @@ bool ExportsProxyModel::filterAcceptsRow(int row, const QModelIndex &parent) con
     QModelIndex index = sourceModel()->index(row, 0, parent);
     auto exp = index.data(ExportsModel::ExportDescriptionRole).value<ExportDescription>();
 
-    return exp.name.contains(filterRegExp());
+    return qhelpers::filterStringContains(exp.name, this);
 }
 
 bool ExportsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
@@ -113,10 +116,15 @@ bool ExportsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
             return leftExp.vaddr < rightExp.vaddr;
     // fallthrough
     case ExportsModel::NameColumn:
-        return leftExp.name < rightExp.name;
+        if (leftExp.name != rightExp.name)
+            return leftExp.name < rightExp.name;
+    // fallthrough
     case ExportsModel::TypeColumn:
         if (leftExp.type != rightExp.type)
             return leftExp.type < rightExp.type;
+    // fallthrough
+    case ExportsModel::CommentColumn:
+        return Core()->getCommentAt(leftExp.vaddr) < Core()->getCommentAt(rightExp.vaddr);
     default:
         break;
     }
@@ -125,8 +133,7 @@ bool ExportsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
     return leftExp.vaddr < rightExp.vaddr;
 }
 
-ExportsWidget::ExportsWidget(MainWindow *main, QAction *action) :
-    ListDockWidget(main, action)
+ExportsWidget::ExportsWidget(MainWindow *main) : ListDockWidget(main)
 {
     setWindowTitle(tr("Exports"));
     setObjectName("ExportsWidget");
@@ -137,13 +144,12 @@ ExportsWidget::ExportsWidget(MainWindow *main, QAction *action) :
     ui->treeView->sortByColumn(ExportsModel::OffsetColumn, Qt::AscendingOrder);
 
     QShortcut *toggle_shortcut = new QShortcut(widgetShortcuts["ExportsWidget"], main);
-    connect(toggle_shortcut, &QShortcut::activated, this, [=] (){ 
-            toggleDockWidget(true); 
-            main->updateDockActionChecked(action);
-            } );
+    connect(toggle_shortcut, &QShortcut::activated, this, [=]() { toggleDockWidget(true); });
 
     connect(Core(), &CutterCore::codeRebased, this, &ExportsWidget::refreshExports);
     connect(Core(), &CutterCore::refreshAll, this, &ExportsWidget::refreshExports);
+    connect(Core(), &CutterCore::commentsChanged, this,
+            [this]() { qhelpers::emitColumnChanged(exportsModel, ExportsModel::CommentColumn); });
 }
 
 ExportsWidget::~ExportsWidget() {}

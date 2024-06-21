@@ -20,7 +20,7 @@ namespace Ui {
 class StringsWidget;
 }
 
-class StringsModel: public AddressableItemModel<QAbstractListModel>
+class StringsModel : public AddressableItemModel<QAbstractListModel>
 {
     Q_OBJECT
 
@@ -30,7 +30,16 @@ private:
     QList<StringDescription> *strings;
 
 public:
-    enum Column { OffsetColumn = 0, StringColumn, TypeColumn, LengthColumn, SizeColumn, SectionColumn, ColumnCount };
+    enum Column {
+        OffsetColumn = 0,
+        StringColumn,
+        TypeColumn,
+        LengthColumn,
+        SizeColumn,
+        SectionColumn,
+        CommentColumn,
+        ColumnCount
+    };
     static const int StringDescriptionRole = Qt::UserRole;
 
     StringsModel(QList<StringDescription> *strings, QObject *parent = nullptr);
@@ -46,16 +55,13 @@ public:
     const StringDescription *description(const QModelIndex &index) const;
 };
 
-
-
 class StringsProxyModel : public AddressableFilterProxyModel
 {
     Q_OBJECT
 
-    friend StringsWidget;
-
 public:
     StringsProxyModel(StringsModel *sourceModel, QObject *parent = nullptr);
+    void setSelectedSection(QString section);
 
 protected:
     bool filterAcceptsRow(int row, const QModelIndex &parent) const override;
@@ -64,13 +70,12 @@ protected:
     QString selectedSection;
 };
 
-
 class StringsWidget : public CutterDockWidget
 {
     Q_OBJECT
 
 public:
-    explicit StringsWidget(MainWindow *main, QAction *action = nullptr);
+    explicit StringsWidget(MainWindow *main);
     ~StringsWidget();
 
 private slots:

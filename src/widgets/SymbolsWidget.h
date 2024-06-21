@@ -9,13 +9,11 @@
 #include "CutterDockWidget.h"
 #include "widgets/ListDockWidget.h"
 
-
 class MainWindow;
 class QTreeWidgetItem;
 class SymbolsWidget;
 
-
-class SymbolsModel: public AddressableItemModel<QAbstractListModel>
+class SymbolsModel : public AddressableItemModel<QAbstractListModel>
 {
     Q_OBJECT
 
@@ -25,7 +23,7 @@ private:
     QList<SymbolDescription> *symbols;
 
 public:
-    enum Column { AddressColumn = 0, TypeColumn, NameColumn, ColumnCount };
+    enum Column { AddressColumn = 0, TypeColumn, NameColumn, CommentColumn, ColumnCount };
     enum Role { SymbolDescriptionRole = Qt::UserRole };
 
     SymbolsModel(QList<SymbolDescription> *exports, QObject *parent = nullptr);
@@ -34,7 +32,8 @@ public:
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
     QVariant data(const QModelIndex &index, int role) const override;
-    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+    QVariant headerData(int section, Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const override;
 
     RVA address(const QModelIndex &index) const override;
     QString name(const QModelIndex &index) const override;
@@ -52,13 +51,12 @@ protected:
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
 };
 
-
 class SymbolsWidget : public ListDockWidget
 {
     Q_OBJECT
 
 public:
-    explicit SymbolsWidget(MainWindow *main, QAction *action = nullptr);
+    explicit SymbolsWidget(MainWindow *main);
     ~SymbolsWidget();
 
 private slots:

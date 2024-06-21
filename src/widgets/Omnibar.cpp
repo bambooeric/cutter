@@ -7,10 +7,7 @@
 #include <QShortcut>
 #include <QAbstractItemView>
 
-
-Omnibar::Omnibar(MainWindow *main, QWidget *parent) :
-    QLineEdit(parent),
-    main(main)
+Omnibar::Omnibar(MainWindow *main, QWidget *parent) : QLineEdit(parent), main(main)
 {
     // QLineEdit basic features
     this->setMinimumHeight(16);
@@ -20,11 +17,11 @@ Omnibar::Omnibar(MainWindow *main, QWidget *parent) :
     this->setTextMargins(10, 0, 0, 0);
     this->setClearButtonEnabled(true);
 
-    connect(this, SIGNAL(returnPressed()), this, SLOT(on_gotoEntry_returnPressed()));
+    connect(this, &QLineEdit::returnPressed, this, &Omnibar::on_gotoEntry_returnPressed);
 
     // Esc clears omnibar
     QShortcut *clear_shortcut = new QShortcut(QKeySequence(Qt::Key_Escape), this);
-    connect(clear_shortcut, SIGNAL(activated()), this, SLOT(clear()));
+    connect(clear_shortcut, &QShortcut::activated, this, &Omnibar::clear);
     clear_shortcut->setContext(Qt::WidgetWithChildrenShortcut);
 }
 

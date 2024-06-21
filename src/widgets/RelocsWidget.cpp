@@ -6,14 +6,11 @@
 #include <QShortcut>
 #include <QTreeWidget>
 
-RelocsModel::RelocsModel(QList<RelocDescription> *relocs, QObject *parent) :
-    AddressableItemModel<QAbstractTableModel>(parent),
-    relocs(relocs)
-{}
+RelocsModel::RelocsModel(QObject *parent) : AddressableItemModel<QAbstractTableModel>(parent) {}
 
 int RelocsModel::rowCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : relocs->count();
+    return parent.isValid() ? 0 : relocs.count();
 }
 
 int RelocsModel::columnCount(const QModelIndex &) const
@@ -23,16 +20,18 @@ int RelocsModel::columnCount(const QModelIndex &) const
 
 QVariant RelocsModel::data(const QModelIndex &index, int role) const
 {
-    const RelocDescription &reloc = relocs->at(index.row());
+    const RelocDescription &reloc = relocs.at(index.row());
     switch (role) {
     case Qt::DisplayRole:
         switch (index.column()) {
         case RelocsModel::VAddrColumn:
-            return RAddressString(reloc.vaddr);
+            return RzAddressString(reloc.vaddr);
         case RelocsModel::TypeColumn:
             return reloc.type;
         case RelocsModel::NameColumn:
             return reloc.name;
+        case RelocsModel::CommentColumn:
+            return Core()->getCommentAt(reloc.vaddr);
         default:
             break;
         }
@@ -57,20 +56,29 @@ QVariant RelocsModel::headerData(int section, Qt::Orientation, int role) const
             return tr("Type");
         case RelocsModel::NameColumn:
             return tr("Name");
+        case RelocsModel::CommentColumn:
+            return tr("Comment");
         }
     return QVariant();
 }
 
 RVA RelocsModel::address(const QModelIndex &index) const
 {
-    const RelocDescription &reloc = relocs->at(index.row());
+    const RelocDescription &reloc = relocs.at(index.row());
     return reloc.vaddr;
 }
 
 QString RelocsModel::name(const QModelIndex &index) const
 {
-    const RelocDescription &reloc = relocs->at(index.row());
+    const RelocDescription &reloc = relocs.at(index.row());
     return reloc.name;
+}
+
+void RelocsModel::reload()
+{
+    beginResetModel();
+    relocs = Core()->getAllRelocs();
+    endResetModel();
 }
 
 RelocsProxyModel::RelocsProxyModel(RelocsModel *sourceModel, QObject *parent)
@@ -85,7 +93,7 @@ bool RelocsProxyModel::filterAcceptsRow(int row, const QModelIndex &parent) cons
     QModelIndex index = sourceModel()->index(row, 0, parent);
     auto reloc = index.data(RelocsModel::RelocDescriptionRole).value<RelocDescription>();
 
-    return reloc.name.contains(filterRegExp());
+    return qhelpers::filterStringContains(reloc.name, this);
 }
 
 bool RelocsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
@@ -106,6 +114,8 @@ bool RelocsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &righ
         return leftReloc.type < rightReloc.type;
     case RelocsModel::NameColumn:
         return leftReloc.name < rightReloc.name;
+    case RelocsModel::CommentColumn:
+        return Core()->getCommentAt(leftReloc.vaddr) < Core()->getCommentAt(rightReloc.vaddr);
     default:
         break;
     }
@@ -113,10 +123,10 @@ bool RelocsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &righ
     return false;
 }
 
-RelocsWidget::RelocsWidget(MainWindow *main, QAction *action) :
-    ListDockWidget(main, action),
-    relocsModel(new RelocsModel(&relocs, this)),
-    relocsProxyModel(new RelocsProxyModel(relocsModel, this))
+RelocsWidget::RelocsWidget(MainWindow *main)
+    : ListDockWidget(main),
+      relocsModel(new RelocsModel(this)),
+      relocsProxyModel(new RelocsProxyModel(relocsModel, this))
 {
     setWindowTitle(tr("Relocs"));
     setObjectName("RelocsWidget");
@@ -126,14 +136,14 @@ RelocsWidget::RelocsWidget(MainWindow *main, QAction *action) :
 
     connect(Core(), &CutterCore::codeRebased, this, &RelocsWidget::refreshRelocs);
     connect(Core(), &CutterCore::refreshAll, this, &RelocsWidget::refreshRelocs);
+    connect(Core(), &CutterCore::commentsChanged, this,
+            [this]() { qhelpers::emitColumnChanged(relocsModel, RelocsModel::CommentColumn); });
 }
 
 RelocsWidget::~RelocsWidget() {}
 
 void RelocsWidget::refreshRelocs()
 {
-    relocsModel->beginResetModel();
-    relocs = Core()->getAllRelocs();
-    relocsModel->endResetModel();
+    relocsModel->reload();
     qhelpers::adjustColumns(ui->treeView, 3, 0);
 }

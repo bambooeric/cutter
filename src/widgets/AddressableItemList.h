@@ -19,12 +19,11 @@ class MainWindow;
 template<class BaseListWidget = CutterTreeView>
 class AddressableItemList : public BaseListWidget
 {
-    static_assert (std::is_base_of<QAbstractItemView, BaseListWidget>::value,
-                   "ParentModel needs to inherit from QAbstractItemModel");
+    static_assert(std::is_base_of<QAbstractItemView, BaseListWidget>::value,
+                  "ParentModel needs to inherit from QAbstractItemModel");
 
 public:
-    explicit AddressableItemList(QWidget *parent = nullptr) :
-        BaseListWidget(parent)
+    explicit AddressableItemList(QWidget *parent = nullptr) : BaseListWidget(parent)
     {
         this->connect(this, &QWidget::customContextMenuRequested, this,
                       &AddressableItemList<BaseListWidget>::showItemContextMenu);
@@ -49,10 +48,7 @@ public:
         this->addActions(this->getItemContextMenu()->actions());
     }
 
-    AddressableItemContextMenu *getItemContextMenu()
-    {
-        return itemContextMenu;
-    }
+    AddressableItemContextMenu *getItemContextMenu() { return itemContextMenu; }
     void setItemContextMenu(AddressableItemContextMenu *menu)
     {
         if (itemContextMenu != menu && itemContextMenu) {
@@ -60,16 +56,31 @@ public:
         }
         itemContextMenu = menu;
     }
+
+    /**
+     * If this is set to true, the context menu will also be shown if no item
+     * is currently selected.
+     */
+    void setShowItemContextMenuWithoutAddress(bool val) { showItemContextMenuWithoutAddress = val; }
+
 protected:
     virtual void showItemContextMenu(const QPoint &pt)
     {
+        if (!itemContextMenu) {
+            return;
+        }
         auto index = this->currentIndex();
-        if (index.isValid() && itemContextMenu) {
+        if (index.isValid()) {
             auto offset = addressableModel->address(index);
             auto name = addressableModel->name(index);
             itemContextMenu->setTarget(offset, name);
-            itemContextMenu->exec(this->mapToGlobal(pt));
+        } else {
+            if (!showItemContextMenuWithoutAddress) {
+                return;
+            }
+            itemContextMenu->clearTarget();
         }
+        itemContextMenu->exec(this->mapToGlobal(pt));
     }
 
     virtual void onItemActivated(const QModelIndex &index)
@@ -80,10 +91,7 @@ protected:
         auto offset = addressableModel->address(index);
         Core()->seekAndShow(offset);
     }
-    virtual void onSelectedItemChanged(const QModelIndex &index)
-    {
-        updateMenuFromItem(index);
-    }
+    virtual void onSelectedItemChanged(const QModelIndex &index) { updateMenuFromItem(index); }
     void updateMenuFromItem(const QModelIndex &index)
     {
         if (index.isValid()) {
@@ -94,7 +102,9 @@ protected:
             itemContextMenu->clearTarget();
         }
     }
+
 private:
+    bool showItemContextMenuWithoutAddress = false;
     AddressableItemModelI *addressableModel = nullptr;
     AddressableItemContextMenu *itemContextMenu = nullptr;
     MainWindow *mainWindow = nullptr;

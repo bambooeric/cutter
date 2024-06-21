@@ -5,88 +5,95 @@
 #include <QFontDatabase>
 #include <QFile>
 #include <QApplication>
-#include <QLibraryInfo>
 
 #ifdef CUTTER_ENABLE_KSYNTAXHIGHLIGHTING
-#include <KSyntaxHighlighting/repository.h>
-#include <KSyntaxHighlighting/theme.h>
-#include <KSyntaxHighlighting/definition.h>
+#    include <KSyntaxHighlighting/Repository>
+#    include <KSyntaxHighlighting/Theme>
+#    include <KSyntaxHighlighting/Definition>
 #endif
 
 #include "common/ColorThemeWorker.h"
 #include "common/SyntaxHighlighter.h"
+#include "common/ResourcePaths.h"
 
 /* Map with names of themes associated with its color palette
  * (Dark or Light), so for dark interface themes will be shown only Dark color themes
  * and for light - only light ones.
  */
 const QHash<QString, ColorFlags> Configuration::relevantThemes = {
-    { "ayu", DarkFlag },
-    { "consonance", DarkFlag },
-    { "darkda", DarkFlag },
-    { "onedark", DarkFlag },
-    { "solarized", DarkFlag },
-    { "zenburn", DarkFlag },
-    { "cutter", LightFlag },
-    { "dark", LightFlag },
-    { "matrix", LightFlag },
-    { "tango", LightFlag },
-    { "white", LightFlag }
+    { "ayu", DarkFlag },       { "basic", DarkFlag },     { "behelit", DarkFlag },
+    { "bold", DarkFlag },      { "bright", DarkFlag },    { "consonance", DarkFlag },
+    { "darkda", DarkFlag },    { "defragger", DarkFlag }, { "focus", DarkFlag },
+    { "gentoo", DarkFlag },    { "lima", DarkFlag },      { "monokai", DarkFlag },
+    { "ogray", DarkFlag },     { "onedark", DarkFlag },   { "pink", DarkFlag },
+    { "rasta", DarkFlag },     { "sepia", DarkFlag },     { "smyck", DarkFlag },
+    { "solarized", DarkFlag }, { "twilight", DarkFlag },  { "white2", DarkFlag },
+    { "xvilka", DarkFlag },    { "zenburn", DarkFlag },   { "cga", LightFlag },
+    { "cutter", LightFlag },   { "dark", LightFlag },     { "gb", LightFlag },
+    { "matrix", LightFlag },   { "tango", LightFlag },    { "white", LightFlag }
 };
+static const QString DEFAULT_LIGHT_COLOR_THEME = "cutter";
+static const QString DEFAULT_DARK_COLOR_THEME = "ayu";
 
 const QHash<QString, QHash<ColorFlags, QColor>> Configuration::cutterOptionColors = {
-    { "gui.cflow",                 { { DarkFlag,  QColor(0xff, 0xff, 0xff) },
-                                     { LightFlag, QColor(0x00, 0x00, 0x00) }} },
-    { "gui.dataoffset",            { { DarkFlag,  QColor(0xff, 0xff, 0xff) },
-                                     { LightFlag, QColor(0x00, 0x00, 0x00) }} },
-    { "gui.imports",               { { DarkFlag,  QColor(0x32, 0x8c, 0xff) },
-                                     { LightFlag, QColor(0x32, 0x8c, 0xff) }} },
-    { "gui.item_invalid",          { { DarkFlag,  QColor(0x9b, 0x9b, 0x9b) },
-                                     { LightFlag, QColor(0x9b, 0x9b, 0x9b) }} },
-    { "gui.main",                  { { DarkFlag,  QColor(0x00, 0x80, 0x00) },
-                                     { LightFlag, QColor(0x00, 0x80, 0x00) }} },
-    { "gui.item_unsafe",           { { DarkFlag,  QColor(0xff, 0x81, 0x7b) },
-                                     { LightFlag, QColor(0xff, 0x81, 0x7b) }} },
-    { "gui.navbar.seek",           { { DarkFlag,  QColor(0xe9, 0x56, 0x56) },
-                                     { LightFlag, QColor(0xff, 0x00, 0x00) }} },
-    { "gui.navbar.pc",             { { DarkFlag,  QColor(0x42, 0xee, 0xf4) },
-                                     { LightFlag, QColor(0x42, 0xee, 0xf4) }} },
-    { "gui.navbar.code",           { { DarkFlag,  QColor(0x82, 0xc8, 0x6f) },
-                                     { LightFlag, QColor(0x68, 0xe5, 0x45) }} },
-    { "gui.navbar.str",            { { DarkFlag,  QColor(0x6f, 0x86, 0xd8) },
-                                     { LightFlag, QColor(0x45, 0x68, 0xe5) }} },
-    { "gui.navbar.sym",            { { DarkFlag,  QColor(0xdd, 0xa3, 0x68) },
-                                     { LightFlag, QColor(0xe5, 0x96, 0x45) }} },
-    { "gui.navbar.empty",          { { DarkFlag,  QColor(0x64, 0x64, 0x64) },
-                                     { LightFlag, QColor(0xdc, 0xec, 0xf5) }} },
-    { "gui.breakpoint_background", { { DarkFlag,  QColor(0x8c, 0x4c, 0x4c) },
-                                     { LightFlag, QColor(0xe9, 0x8f, 0x8f) }} },
-    { "gui.overview.node",         { { DarkFlag,  QColor(0x64, 0x64, 0x64) },
-                                     { LightFlag, QColor(0xf5, 0xfa, 0xff) }} },
-    { "gui.tooltip.background",    { { DarkFlag,  QColor(0x2a, 0x2c, 0x2e) },
-                                     { LightFlag, QColor(0xfa, 0xfc, 0xfe) }} },
-    { "gui.tooltip.foreground",    { { DarkFlag,  QColor(0xfa, 0xfc, 0xfe) },
-                                     { LightFlag, QColor(0x2a, 0x2c, 0x2e) }} },
-    { "gui.border",                { { DarkFlag,  QColor(0x64, 0x64, 0x64) },
-                                     { LightFlag, QColor(0x91, 0xc8, 0xfa) }} },
-    { "gui.background",            { { DarkFlag,  QColor(0x25, 0x28, 0x2b) },
-                                     { LightFlag, QColor(0xff, 0xff, 0xff) }} },
-    { "gui.alt_background",        { { DarkFlag,  QColor(0x1c, 0x1f, 0x24) },
-                                     { LightFlag, QColor(0xf5, 0xfa, 0xff) }} },
-    { "gui.disass_selected",       { { DarkFlag,  QColor(0x1f, 0x22, 0x28) },
-                                     { LightFlag, QColor(0xff, 0xff, 0xff) }} },
-    { "lineHighlight",             { { DarkFlag,  QColor(0x15, 0x1d, 0x1d, 0x96) },
-                                     { LightFlag, QColor(0xd2, 0xd2, 0xff, 0x96) }} },
-    { "wordHighlight",             { { DarkFlag,  QColor(0x34, 0x3a, 0x47, 0xff) },
-                                     { LightFlag, QColor(0xb3, 0x77, 0xd6, 0x3c) }} },
-    { "highlightPC",               { { DarkFlag,  QColor(0x57, 0x1a, 0x07) },
-                                     { LightFlag, QColor(0xd6, 0xff, 0xd2) }} },
-    { "gui.overview.fill",         { { DarkFlag,  QColor(0xff, 0xff, 0xff, 0x28) },
-                                     { LightFlag, QColor(0xaf, 0xd9, 0xea, 0x41) }} },
-    { "gui.overview.border",       { { DarkFlag,  QColor(0x63, 0xda, 0xe8, 0x32) },
-                                     { LightFlag, QColor(0x63, 0xda, 0xe8, 0x32) }} },
-    { "gui.navbar.err",            { { DarkFlag,  QColor(0x03, 0xaa, 0xf5) },
-                                     { LightFlag, QColor(0x03, 0xaa, 0xf5) }} }
+    { "gui.cflow",
+      { { DarkFlag, QColor(0xff, 0xff, 0xff) }, { LightFlag, QColor(0x00, 0x00, 0x00) } } },
+    { "gui.dataoffset",
+      { { DarkFlag, QColor(0xff, 0xff, 0xff) }, { LightFlag, QColor(0x00, 0x00, 0x00) } } },
+    { "gui.imports",
+      { { DarkFlag, QColor(0x32, 0x8c, 0xff) }, { LightFlag, QColor(0x32, 0x8c, 0xff) } } },
+    { "gui.item_invalid",
+      { { DarkFlag, QColor(0x9b, 0x9b, 0x9b) }, { LightFlag, QColor(0x9b, 0x9b, 0x9b) } } },
+    { "gui.main",
+      { { DarkFlag, QColor(0x21, 0xd8, 0x93) }, { LightFlag, QColor(0x00, 0x80, 0x00) } } },
+    { "gui.flirt",
+      { { DarkFlag, QColor(0xd8, 0xbb, 0x21) }, { LightFlag, QColor(0xf1, 0xc4, 0x0f) } } },
+    { "gui.item_unsafe",
+      { { DarkFlag, QColor(0xff, 0x81, 0x7b) }, { LightFlag, QColor(0xff, 0x81, 0x7b) } } },
+    { "gui.navbar.seek",
+      { { DarkFlag, QColor(0xe9, 0x56, 0x56) }, { LightFlag, QColor(0xff, 0x00, 0x00) } } },
+    { "gui.navbar.pc",
+      { { DarkFlag, QColor(0x42, 0xee, 0xf4) }, { LightFlag, QColor(0x42, 0xee, 0xf4) } } },
+    { "gui.navbar.code",
+      { { DarkFlag, QColor(0x82, 0xc8, 0x6f) }, { LightFlag, QColor(0x68, 0xe5, 0x45) } } },
+    { "gui.navbar.str",
+      { { DarkFlag, QColor(0x6f, 0x86, 0xd8) }, { LightFlag, QColor(0x45, 0x68, 0xe5) } } },
+    { "gui.navbar.sym",
+      { { DarkFlag, QColor(0xdd, 0xa3, 0x68) }, { LightFlag, QColor(0xe5, 0x96, 0x45) } } },
+    { "gui.navbar.empty",
+      { { DarkFlag, QColor(0x64, 0x64, 0x64) }, { LightFlag, QColor(0xdc, 0xec, 0xf5) } } },
+    { "gui.breakpoint_background",
+      { { DarkFlag, QColor(0x8c, 0x4c, 0x4c) }, { LightFlag, QColor(0xe9, 0x8f, 0x8f) } } },
+    { "gui.overview.node",
+      { { DarkFlag, QColor(0x64, 0x64, 0x64) }, { LightFlag, QColor(0xf5, 0xfa, 0xff) } } },
+    { "gui.tooltip.background",
+      { { DarkFlag, QColor(0x2a, 0x2c, 0x2e) }, { LightFlag, QColor(0xfa, 0xfc, 0xfe) } } },
+    { "gui.tooltip.foreground",
+      { { DarkFlag, QColor(0xfa, 0xfc, 0xfe) }, { LightFlag, QColor(0x2a, 0x2c, 0x2e) } } },
+    { "gui.border",
+      { { DarkFlag, QColor(0x64, 0x64, 0x64) }, { LightFlag, QColor(0x91, 0xc8, 0xfa) } } },
+    { "gui.background",
+      { { DarkFlag, QColor(0x25, 0x28, 0x2b) }, { LightFlag, QColor(0xff, 0xff, 0xff) } } },
+    { "gui.alt_background",
+      { { DarkFlag, QColor(0x1c, 0x1f, 0x24) }, { LightFlag, QColor(0xf5, 0xfa, 0xff) } } },
+    { "gui.disass_selected",
+      { { DarkFlag, QColor(0x1f, 0x22, 0x28) }, { LightFlag, QColor(0xff, 0xff, 0xff) } } },
+    { "lineHighlight",
+      { { DarkFlag, QColor(0x15, 0x1d, 0x1d, 0x96) },
+        { LightFlag, QColor(0xd2, 0xd2, 0xff, 0x96) } } },
+    { "wordHighlight",
+      { { DarkFlag, QColor(0x34, 0x3a, 0x47, 0xff) },
+        { LightFlag, QColor(0xb3, 0x77, 0xd6, 0x3c) } } },
+    { "highlightPC",
+      { { DarkFlag, QColor(0x57, 0x1a, 0x07) }, { LightFlag, QColor(0xd6, 0xff, 0xd2) } } },
+    { "gui.overview.fill",
+      { { DarkFlag, QColor(0xff, 0xff, 0xff, 0x28) },
+        { LightFlag, QColor(0xaf, 0xd9, 0xea, 0x41) } } },
+    { "gui.overview.border",
+      { { DarkFlag, QColor(0x63, 0xda, 0xe8, 0x32) },
+        { LightFlag, QColor(0x63, 0xda, 0xe8, 0x32) } } },
+    { "gui.navbar.err",
+      { { DarkFlag, QColor(0x03, 0xaa, 0xf5) }, { LightFlag, QColor(0x03, 0xaa, 0xf5) } } }
 };
 
 Configuration *Configuration::mPtr = nullptr;
@@ -94,51 +101,51 @@ Configuration *Configuration::mPtr = nullptr;
 /**
  * @brief All asm.* options saved as settings. Values are the default values.
  */
-static const QHash<QString, QVariant> asmOptions = {
-    { "asm.esil",           false },
-    { "asm.pseudo",         false },
-    { "asm.offset",         true },
-    { "asm.xrefs",          false },
-    { "asm.indent",         false },
-    { "asm.describe",       false },
-    { "asm.slow",           true },
-    { "asm.lines",          true },
-    { "asm.lines.fcn",      true },
-    { "asm.flags.offset",   false },
-    { "asm.emu",            false },
-    { "asm.cmt.right",      true },
-    { "asm.cmt.col",        35 },
-    { "asm.var.summary",    false },
-    { "asm.bytes",          false },
-    { "asm.size",           false },
-    { "asm.bytespace",      false },
-    { "asm.lbytes",         true },
-    { "asm.nbytes",         10 },
-    { "asm.syntax",         "intel" },
-    { "asm.ucase",          false },
-    { "asm.bb.line",        false },
-    { "asm.capitalize",     false },
-    { "asm.var.sub",        true },
-    { "asm.var.subonly",    true },
-    { "asm.tabs",           8 },
-    { "asm.tabs.off",       5 },
-    { "asm.marks",          false },
-    { "asm.refptr",         false },
-    { "asm.flags.real",     true },
-    { "esil.breakoninvalid",true },
-    { "graph.offset",       false}
-};
-
+static const QHash<QString, QVariant> asmOptions = { { "asm.esil", false },
+                                                     { "asm.pseudo", false },
+                                                     { "asm.offset", true },
+                                                     { "asm.xrefs", false },
+                                                     { "asm.indent", false },
+                                                     { "asm.describe", false },
+                                                     { "asm.slow", true },
+                                                     { "asm.lines", true },
+                                                     { "asm.lines.fcn", true },
+                                                     { "asm.flags.offset", false },
+                                                     { "asm.emu", false },
+                                                     { "emu.str", false },
+                                                     { "asm.cmt.right", true },
+                                                     { "asm.cmt.col", 35 },
+                                                     { "asm.var.summary", false },
+                                                     { "asm.bytes", false },
+                                                     { "asm.size", false },
+                                                     { "asm.bytes.space", false },
+                                                     { "asm.lbytes", true },
+                                                     { "asm.nbytes", 10 },
+                                                     { "asm.syntax", "intel" },
+                                                     { "asm.ucase", false },
+                                                     { "asm.bb.line", false },
+                                                     { "asm.capitalize", false },
+                                                     { "asm.sub.var", true },
+                                                     { "asm.sub.varonly", true },
+                                                     { "asm.tabs", 8 },
+                                                     { "asm.tabs.off", 5 },
+                                                     { "asm.marks", false },
+                                                     { "asm.refptr", false },
+                                                     { "asm.flags.real", true },
+                                                     { "asm.reloff", false },
+                                                     { "asm.reloff.flags", false },
+                                                     { "esil.breakoninvalid", true },
+                                                     { "dbg.trace_continue", true },
+                                                     { "graph.offset", false } };
 
 Configuration::Configuration() : QObject(), nativePalette(qApp->palette())
 {
     mPtr = this;
     if (!s.isWritable()) {
-        QMessageBox::critical(nullptr,
-                              tr("Critical!"),
-                              tr("!!! Settings are not writable! Make sure you have a write access to \"%1\"")
-                              .arg(s.fileName())
-                             );
+        QMessageBox::critical(
+                nullptr, tr("Critical Error!"),
+                tr("Settings are not writable! Make sure you have a write access to \"%1\".")
+                        .arg(s.fileName()));
     }
 #ifdef CUTTER_ENABLE_KSYNTAXHIGHLIGHTING
     kSyntaxHighlightingRepository = nullptr;
@@ -161,22 +168,6 @@ void Configuration::loadInitial()
 #ifdef CUTTER_ENABLE_KSYNTAXHIGHLIGHTING
     kSyntaxHighlightingRepository = new KSyntaxHighlighting::Repository();
 #endif
-}
-
-QString Configuration::getDirProjects()
-{
-    auto projectsDir = s.value("dir.projects").toString();
-    if (projectsDir.isEmpty()) {
-        projectsDir = Core()->getConfig("dir.projects");
-        setDirProjects(projectsDir);
-    }
-
-    return QDir::toNativeSeparators(projectsDir);
-}
-
-void Configuration::setDirProjects(const QString &dir)
-{
-    s.setValue("dir.projects", QDir::toNativeSeparators(dir));
 }
 
 QString Configuration::getRecentFolder()
@@ -208,7 +199,9 @@ int Configuration::getNewFileLastClicked()
 
 void Configuration::resetAll()
 {
-    Core()->cmdRaw("e-");
+    // Don't reset all rizin vars, that currently breaks a bunch of stuff.
+    // settingsFile.remove()+loadInitials() should reset all settings configurable using Cutter GUI.
+
     Core()->setSettings();
     // Delete the file so no extra configuration is in it.
     QFile settingsFile(s.fileName());
@@ -254,11 +247,12 @@ void Configuration::setLocale(const QLocale &l)
  */
 bool Configuration::setLocaleByName(const QString &language)
 {
-    const auto &allLocales = QLocale::matchingLocales(QLocale::AnyLanguage, QLocale::AnyScript,
-                                                      QLocale::AnyCountry);
+    const auto &allLocales =
+            QLocale::matchingLocales(QLocale::AnyLanguage, QLocale::AnyScript, QLocale::AnyCountry);
 
     for (auto &it : allLocales) {
-        if (QString::compare(it.nativeLanguageName(), language, Qt::CaseInsensitive) == 0) {
+        if (QString::compare(it.nativeLanguageName(), language, Qt::CaseInsensitive) == 0
+            || it.name() == language) {
             setLocale(it);
             return true;
         }
@@ -294,6 +288,15 @@ void Configuration::loadNativeStylesheet()
         f.open(QFile::ReadOnly | QFile::Text);
         QTextStream ts(&f);
         QString stylesheet = ts.readAll();
+#ifdef Q_OS_MACOS
+        QFile mf(nativeWindowIsDark() ? ":native/native-macos-dark.qss"
+                                      : ":native/native-macos-light.qss");
+        if (mf.exists()) {
+            mf.open(QFile::ReadOnly | QFile::Text);
+            QTextStream mts(&mf);
+            stylesheet += "\n" + mts.readAll();
+        }
+#endif
         qApp->setStyleSheet(stylesheet);
     }
 
@@ -382,9 +385,9 @@ const QFont Configuration::getBaseFont() const
 
 const QFont Configuration::getFont() const
 {
-  QFont font = getBaseFont();
-  font.setPointSizeF(font.pointSizeF() * getZoomFactor());
-  return font;
+    QFont font = getBaseFont();
+    font.setPointSizeF(font.pointSizeF() * getZoomFactor());
+    return font;
 }
 
 void Configuration::setFont(const QFont &font)
@@ -398,26 +401,26 @@ void Configuration::refreshFont()
     emit fontsUpdated();
 }
 
-qreal Configuration::getZoomFactor() const {
-  qreal fontZoom = s.value("zoomFactor", 1.0).value<qreal>();
-  return qMax(fontZoom, 0.1);
+qreal Configuration::getZoomFactor() const
+{
+    qreal fontZoom = s.value("zoomFactor", 1.0).value<qreal>();
+    return qMax(fontZoom, 0.1);
 }
 
-void Configuration::setZoomFactor(qreal zoom) {
-  s.setValue("zoomFactor", qMax(zoom, 0.1));
-  emit fontsUpdated();
+void Configuration::setZoomFactor(qreal zoom)
+{
+    s.setValue("zoomFactor", qMax(zoom, 0.1));
+    emit fontsUpdated();
 }
 
 QString Configuration::getLastThemeOf(const CutterInterfaceTheme &currInterfaceTheme) const
 {
-    return s.value("lastThemeOf." + currInterfaceTheme.name,
-                   Config()->getColorTheme()).toString();
+    return s.value("lastThemeOf." + currInterfaceTheme.name, Config()->getColorTheme()).toString();
 }
 
 void Configuration::setInterfaceTheme(int theme)
 {
-    if (theme >= cutterInterfaceThemesList().size() ||
-            theme < 0) {
+    if (theme >= cutterInterfaceThemesList().size() || theme < 0) {
         theme = 0;
     }
     s.setValue("ColorPalette", theme);
@@ -439,6 +442,8 @@ void Configuration::setInterfaceTheme(int theme)
     for (auto it = cutterOptionColors.cbegin(); it != cutterOptionColors.cend(); it++) {
         setColor(it.key(), it.value()[interfaceTheme.flag]);
     }
+
+    adjustColorThemeDarkness();
 
     emit interfaceThemeChanged();
     emit colorsUpdated();
@@ -469,10 +474,9 @@ KSyntaxHighlighting::Theme Configuration::getKSyntaxHighlightingTheme()
     if (!repo) {
         return KSyntaxHighlighting::Theme();
     }
-    return repo->defaultTheme(
-        getCurrentTheme()->flag & DarkFlag
-        ? KSyntaxHighlighting::Repository::DefaultTheme::DarkTheme
-        : KSyntaxHighlighting::Repository::DefaultTheme::LightTheme);
+    return repo->defaultTheme(getCurrentTheme()->flag & DarkFlag
+                                      ? KSyntaxHighlighting::Repository::DefaultTheme::DarkTheme
+                                      : KSyntaxHighlighting::Repository::DefaultTheme::LightTheme);
 }
 #endif
 
@@ -492,9 +496,8 @@ QSyntaxHighlighter *Configuration::createSyntaxHighlighter(QTextDocument *docume
 
 QString Configuration::getLogoFile()
 {
-    return windowColorIsDark()
-           ? QString(":/img/cutter_white_plain.svg")
-           : QString(":/img/cutter_plain.svg");
+    return windowColorIsDark() ? QString(":/img/cutter_white_plain.svg")
+                               : QString(":/img/cutter_plain.svg");
 }
 
 /**
@@ -507,7 +510,8 @@ void Configuration::setColor(const QString &name, const QColor &color)
     s.setValue("colors." + name, color);
 }
 
-void Configuration::setLastThemeOf(const CutterInterfaceTheme &currInterfaceTheme, const QString &theme)
+void Configuration::setLastThemeOf(const CutterInterfaceTheme &currInterfaceTheme,
+                                   const QString &theme)
 {
     s.setValue("lastThemeOf." + currInterfaceTheme.name, theme);
 }
@@ -524,23 +528,39 @@ const QColor Configuration::getColor(const QString &name) const
 void Configuration::setColorTheme(const QString &theme)
 {
     if (theme == "default") {
-        Core()->cmdRaw("ecd");
+        rz_cons_pal_init(Core()->core()->cons->context);
         s.setValue("theme", "default");
     } else {
-        Core()->cmdRaw(QStringLiteral("eco %1").arg(theme));
+        rz_core_theme_load(Core()->core(), theme.toUtf8().constData());
         s.setValue("theme", theme);
     }
 
-    QJsonObject colorTheme = ThemeWorker().getTheme(theme).object();
+    ColorThemeWorker::Theme colorTheme = ThemeWorker().getTheme(theme);
     for (auto it = colorTheme.constBegin(); it != colorTheme.constEnd(); it++) {
-        QJsonArray rgb = it.value().toArray();
-        if (rgb.size() != 4) {
-            continue;
-        }
-        setColor(it.key(), QColor(rgb[0].toInt(), rgb[1].toInt(), rgb[2].toInt(), rgb[3].toInt()));
+        setColor(it.key(), it.value());
     }
 
     emit colorsUpdated();
+}
+
+void Configuration::adjustColorThemeDarkness()
+{
+    bool windowIsDark = windowColorIsDark();
+    int windowDarkness = windowIsDark ? DarkFlag : LightFlag;
+    int currentColorThemeDarkness = colorThemeDarkness(getColorTheme());
+
+    if ((currentColorThemeDarkness & windowDarkness) == 0) {
+        setColorTheme(windowIsDark ? DEFAULT_DARK_COLOR_THEME : DEFAULT_LIGHT_COLOR_THEME);
+    }
+}
+
+int Configuration::colorThemeDarkness(const QString &colorTheme) const
+{
+    auto flags = relevantThemes.find(colorTheme);
+    if (flags != relevantThemes.end()) {
+        return static_cast<int>(*flags);
+    }
+    return DarkFlag | LightFlag;
 }
 
 void Configuration::resetToDefaultAsmOptions()
@@ -557,13 +577,13 @@ void Configuration::applySavedAsmOptions()
     }
 }
 
-const QList<CutterInterfaceTheme>& Configuration::cutterInterfaceThemesList()
+const QList<CutterInterfaceTheme> &Configuration::cutterInterfaceThemesList()
 {
     static const QList<CutterInterfaceTheme> list = {
         { "Native", Configuration::nativeWindowIsDark() ? DarkFlag : LightFlag },
-        { "Dark",   DarkFlag },
+        { "Dark", DarkFlag },
         { "Midnight", DarkFlag },
-        { "Light",  LightFlag }
+        { "Light", LightFlag }
     };
     return list;
 }
@@ -584,7 +604,6 @@ QVariant Configuration::getConfigVar(const QString &key)
     return QVariant();
 }
 
-
 bool Configuration::getConfigBool(const QString &key)
 {
     return getConfigVar(key).toBool();
@@ -602,7 +621,7 @@ QString Configuration::getConfigString(const QString &key)
 
 /**
  * @brief Configuration::setConfig
- * Set radare2 configuration value (e.g. "asm.lines")
+ * Set Rizin configuration value (e.g. "asm.lines")
  * @param key
  * @param value
  */
@@ -621,7 +640,7 @@ void Configuration::setConfig(const QString &key, const QVariant &value)
  */
 QStringList Configuration::getAvailableTranslations()
 {
-    const auto &trDirs = getTranslationsDirectories();
+    const auto &trDirs = Cutter::getTranslationsDirectories();
 
     QSet<QString> fileNamesSet;
     for (const auto &trDir : trDirs) {
@@ -629,29 +648,33 @@ QStringList Configuration::getAvailableTranslations()
         if (!dir.exists()) {
             continue;
         }
-        const QStringList &currTrFileNames = dir.entryList(QStringList("cutter_*.qm"), QDir::Files,
-                                                           QDir::Name);
+        const QStringList &currTrFileNames =
+                dir.entryList(QStringList("cutter_*.qm"), QDir::Files, QDir::Name);
         for (const auto &trFile : currTrFileNames) {
             fileNamesSet << trFile;
         }
     }
 
-    QStringList fileNames = fileNamesSet.toList();
+    QStringList fileNames = fileNamesSet.values();
     std::sort(fileNames.begin(), fileNames.end());
     QStringList languages;
     QString currLanguageName;
-    auto allLocales = QLocale::matchingLocales(QLocale::AnyLanguage, QLocale::AnyScript,
-                                               QLocale::AnyCountry);
+    auto allLocales =
+            QLocale::matchingLocales(QLocale::AnyLanguage, QLocale::AnyScript, QLocale::AnyCountry);
 
     for (auto i : fileNames) {
-        QString localeName = i.mid(sizeof("cutter_") - 1, 2);
-        for (auto j : allLocales) {
-            if (j.name().startsWith(localeName)) {
-                currLanguageName = j.nativeLanguageName();
-                currLanguageName = currLanguageName.at(0).toUpper() +
-                                   currLanguageName.right(currLanguageName.length() - 1);
+        QString localeName = i.mid(sizeof("cutter_") - 1, 2); // TODO:#2321 don't asume 2 characters
+        // language code is sometimes 3 characters, and there could also be language_COUNTRY. Qt
+        // supports that.
+        QLocale locale(localeName);
+        if (locale.language() != QLocale::C) {
+            currLanguageName = locale.nativeLanguageName();
+            if (currLanguageName
+                        .isEmpty()) { // Qt doesn't have native language name for some languages
+                currLanguageName = QLocale::languageToString(locale.language());
+            }
+            if (!currLanguageName.isEmpty()) {
                 languages << currLanguageName;
-                break;
             }
         }
     }
@@ -671,21 +694,6 @@ bool Configuration::isFirstExecution()
         s.setValue("firstExecution", false);
         return true;
     }
-}
-
-QStringList Configuration::getTranslationsDirectories() const
-{
-    static const QString cutterTranslationPath = QCoreApplication::applicationDirPath() +
-                                                 QDir::separator()
-                                                 + QLatin1String("translations");
-
-    return {
-        cutterTranslationPath,
-        QLibraryInfo::location(QLibraryInfo::TranslationsPath),
-#ifdef Q_OS_MAC
-        QStringLiteral("%1/../Resources/translations").arg(QCoreApplication::applicationDirPath()),
-#endif // Q_OS_MAC
-    };
 }
 
 QString Configuration::getSelectedDecompiler()
@@ -708,6 +716,17 @@ void Configuration::setDecompilerAutoRefreshEnabled(bool enabled)
     s.setValue("decompilerAutoRefresh", enabled);
 }
 
+void Configuration::enableDecompilerAnnotationHighlighter(bool useDecompilerHighlighter)
+{
+    s.setValue("decompilerAnnotationHighlighter", useDecompilerHighlighter);
+    emit colorsUpdated();
+}
+
+bool Configuration::isDecompilerAnnotationHighlighterEnabled()
+{
+    return s.value("decompilerAnnotationHighlighter", true).value<bool>();
+}
+
 bool Configuration::getBitmapTransparentState()
 {
     return s.value("bitmapGraphExportTransparency", false).value<bool>();
@@ -728,3 +747,96 @@ void Configuration::setBitmapExportScaleFactor(double inputValueGraph)
     s.setValue("bitmapGraphExportScale", inputValueGraph);
 }
 
+void Configuration::setGraphSpacing(QPoint blockSpacing, QPoint edgeSpacing)
+{
+    s.setValue("graph.blockSpacing", blockSpacing);
+    s.setValue("graph.edgeSpacing", edgeSpacing);
+}
+
+QPoint Configuration::getGraphBlockSpacing()
+{
+    return s.value("graph.blockSpacing", QPoint(20, 40)).value<QPoint>();
+}
+
+QPoint Configuration::getGraphEdgeSpacing()
+{
+    return s.value("graph.edgeSpacing", QPoint(10, 10)).value<QPoint>();
+}
+
+void Configuration::setOutputRedirectionEnabled(bool enabled)
+{
+    this->outputRedirectEnabled = enabled;
+}
+
+bool Configuration::getOutputRedirectionEnabled() const
+{
+    return outputRedirectEnabled;
+}
+
+void Configuration::setPreviewValue(bool checked)
+{
+    s.setValue("asm.preview", checked);
+}
+
+bool Configuration::getPreviewValue() const
+{
+    return s.value("asm.preview").toBool();
+}
+
+void Configuration::setShowVarTooltips(bool enabled)
+{
+    s.setValue("showVarTooltips", enabled);
+}
+
+bool Configuration::getShowVarTooltips() const
+{
+    return s.value("showVarTooltips").toBool();
+}
+
+bool Configuration::getGraphBlockEntryOffset()
+{
+    return s.value("graphBlockEntryOffset", true).value<bool>();
+}
+
+void Configuration::setGraphBlockEntryOffset(bool enabled)
+{
+    s.setValue("graphBlockEntryOffset", enabled);
+}
+
+QStringList Configuration::getRecentFiles() const
+{
+    return s.value("recentFileList").toStringList();
+}
+
+void Configuration::setRecentFiles(const QStringList &list)
+{
+    s.setValue("recentFileList", list);
+}
+
+QStringList Configuration::getRecentProjects() const
+{
+    return s.value("recentProjectsList").toStringList();
+}
+
+void Configuration::setRecentProjects(const QStringList &list)
+{
+    s.setValue("recentProjectsList", list);
+}
+
+void Configuration::addRecentProject(QString file)
+{
+    QStringList files = getRecentProjects();
+    files.removeAll(file);
+    files.prepend(file);
+    setRecentProjects(files);
+}
+
+QString Configuration::getFunctionsWidgetLayout()
+{
+    return s.value("functionsWidgetLayout").toString();
+}
+
+void Configuration::setFunctionsWidgetLayout(const QString &layout)
+{
+    s.setValue("functionsWidgetLayout", layout);
+}

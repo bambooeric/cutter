@@ -28,7 +28,14 @@ private:
     QList<ExportDescription> *exports;
 
 public:
-    enum Column { OffsetColumn = 0, SizeColumn, TypeColumn, NameColumn, ColumnCount };
+    enum Column {
+        OffsetColumn = 0,
+        SizeColumn,
+        TypeColumn,
+        NameColumn,
+        CommentColumn,
+        ColumnCount
+    };
     enum Role { ExportDescriptionRole = Qt::UserRole };
 
     ExportsModel(QList<ExportDescription> *exports, QObject *parent = nullptr);
@@ -37,7 +44,8 @@ public:
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
     QVariant data(const QModelIndex &index, int role) const override;
-    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+    QVariant headerData(int section, Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const override;
 
     RVA address(const QModelIndex &index) const override;
     QString name(const QModelIndex &index) const override;
@@ -60,7 +68,7 @@ class ExportsWidget : public ListDockWidget
     Q_OBJECT
 
 public:
-    explicit ExportsWidget(MainWindow *main, QAction *action = nullptr);
+    explicit ExportsWidget(MainWindow *main);
     ~ExportsWidget();
 
 private slots:

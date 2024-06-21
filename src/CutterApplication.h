@@ -8,6 +8,18 @@
 
 #include "core/MainWindow.h"
 
+enum class AutomaticAnalysisLevel { Ask, None, AAA, AAAA };
+
+struct CutterCommandLineOptions
+{
+    QStringList args;
+    AutomaticAnalysisLevel analysisLevel = AutomaticAnalysisLevel::Ask;
+    InitialOptions fileOpenOptions;
+    QString pythonHome;
+    bool outputRedirectionEnabled = true;
+    bool enableCutterPlugins = true;
+    bool enableRizinPlugins = true;
+};
 
 class CutterApplication : public QApplication
 {
@@ -17,10 +29,13 @@ public:
     CutterApplication(int &argc, char **argv);
     ~CutterApplication();
 
-    MainWindow *getMainWindow()
-    {
-        return mainWindow;
-    }
+    MainWindow *getMainWindow() { return mainWindow; }
+
+    void launchNewInstance(const QStringList &args = {});
+
+    InitialOptions getInitialOptions() const { return clOptions.fileOpenOptions; }
+    void setInitialOptions(const InitialOptions &options) { clOptions.fileOpenOptions = options; }
+    QStringList getArgs() const;
 
 protected:
     bool event(QEvent *e);
@@ -31,12 +46,18 @@ private:
      * @return true on success
      */
     bool loadTranslations();
+    /**
+     * @brief Parse commandline options and store them in a structure.
+     * @return false if options have error
+     */
+    bool parseCommandLineOptions();
 
 private:
     bool m_FileAlreadyDropped;
+    CutterCore core;
     MainWindow *mainWindow;
+    CutterCommandLineOptions clOptions;
 };
-
 
 /**
  * @brief CutterProxyStyle is used to force shortcuts displaying in context menu

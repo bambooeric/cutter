@@ -7,7 +7,6 @@
 #include "common/AddressableItemModel.h"
 #include "widgets/ListDockWidget.h"
 
-
 class MainWindow;
 class ResourcesWidget;
 
@@ -21,7 +20,7 @@ private:
     QList<ResourcesDescription> *resources;
 
 public:
-    enum Columns { INDEX = 0, NAME, VADDR, TYPE, SIZE, LANG, COUNT };
+    enum Columns { INDEX = 0, NAME, VADDR, TYPE, SIZE, LANG, COMMENT, COUNT };
     explicit ResourcesModel(QList<ResourcesDescription> *resources, QObject *parent = nullptr);
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -41,11 +40,10 @@ class ResourcesWidget : public ListDockWidget
 private:
     ResourcesModel *model;
     AddressableFilterProxyModel *filterModel;
-    CutterTreeView *view;
     QList<ResourcesDescription> resources;
 
 public:
-    explicit ResourcesWidget(MainWindow *main, QAction *action = nullptr);
+    explicit ResourcesWidget(MainWindow *main);
 
 private slots:
     void refreshResources();

@@ -9,7 +9,7 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 
 
 def get_cpp_files_gen(args, include_package=True):
-    ts_tree = et.parse(os.path.join(script_path, "bindings.xml"))
+    ts_tree = et.parse(os.path.join(script_path, "bindings.xml.in"))
     ts_root = ts_tree.getroot()
 
     package = ts_root.attrib["package"]
@@ -30,7 +30,10 @@ def get_cpp_files_gen(args, include_package=True):
 
 
 def cmd_cmake(args):
-    sys.stdout.write(";".join(get_cpp_files_gen(args)))
+    files = get_cpp_files_gen(args)
+    if sys.platform == "win32":
+        files = map(lambda x: x.replace("\\", "/"), files)
+    sys.stdout.write(";".join(files))
 
 
 def cmd_qmake(args):

@@ -5,9 +5,7 @@
 
 #include <QFileDialog>
 
-MapFileDialog::MapFileDialog(QWidget *parent):
-    QDialog(parent),
-    ui(new Ui::MapFileDialog)
+MapFileDialog::MapFileDialog(QWidget *parent) : QDialog(parent), ui(new Ui::MapFileDialog)
 {
     ui->setupUi(this);
 }
@@ -35,7 +33,7 @@ void MapFileDialog::on_buttonBox_accepted()
     }
 
     if (!Core()->mapFile(filePath, mapAddress)) {
-        QMessageBox::critical(this, tr("Map new file file"), tr("Failed to map a new file"));
+        QMessageBox::critical(this, tr("Map new file"), tr("Failed to map a new file"));
         return;
     }
     close();

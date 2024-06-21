@@ -22,7 +22,15 @@ private:
     QList<SegmentDescription> *segments;
 
 public:
-    enum Column { NameColumn = 0, SizeColumn, AddressColumn, EndAddressColumn, PermColumn, ColumnCount };
+    enum Column {
+        NameColumn = 0,
+        SizeColumn,
+        AddressColumn,
+        EndAddressColumn,
+        PermColumn,
+        CommentColumn,
+        ColumnCount
+    };
     enum Role { SegmentDescriptionRole = Qt::UserRole };
 
     SegmentsModel(QList<SegmentDescription> *segments, QObject *parent = nullptr);
@@ -31,7 +39,8 @@ public:
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
     QVariant data(const QModelIndex &index, int role) const override;
-    QVariant headerData(int segment, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+    QVariant headerData(int segment, Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const override;
 
     RVA address(const QModelIndex &index) const override;
     QString name(const QModelIndex &index) const override;
@@ -53,11 +62,12 @@ class SegmentsWidget : public ListDockWidget
     Q_OBJECT
 
 public:
-    explicit SegmentsWidget(MainWindow *main, QAction *action = nullptr);
+    explicit SegmentsWidget(MainWindow *main);
     ~SegmentsWidget();
 
 private slots:
     void refreshSegments();
+
 private:
     QList<SegmentDescription> segments;
     SegmentsModel *segmentsModel;

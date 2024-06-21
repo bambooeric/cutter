@@ -2,8 +2,8 @@
 #include "ui_ListDockWidget.h"
 
 #include "core/MainWindow.h"
+#include "common/DisassemblyPreview.h"
 #include "common/Helpers.h"
-#include "dialogs/RenameDialog.h"
 #include "common/FunctionsTask.h"
 #include "common/TempConfig.h"
 #include "menus/AddressableItemContextMenu.h"
@@ -16,6 +16,10 @@
 #include <QShortcut>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QInputDialog>
+#include <QActionGroup>
+#include <QBitmap>
+#include <QPainter>
 
 namespace {
 
@@ -26,7 +30,8 @@ static const int kMaxTooltipHighlightsLines = 5;
 }
 
 FunctionModel::FunctionModel(QList<FunctionDescription> *functions, QSet<RVA> *importAddresses,
-                             ut64 *mainAdress, bool nested, QFont default_font, QFont highlight_font, QObject *parent)
+                             ut64 *mainAdress, bool nested, QFont default_font,
+                             QFont highlight_font, QObject *parent)
     : AddressableItemModel<>(parent),
       functions(functions),
       importAddresses(importAddresses),
@@ -34,12 +39,17 @@ FunctionModel::FunctionModel(QList<FunctionDescription> *functions, QSet<RVA> *i
       highlightFont(highlight_font),
       defaultFont(default_font),
       nested(nested),
-      currentIndex(-1)
+      currentIndex(-1),
+      iconFuncImpDark(":/img/icons/function_import_dark.svg"),
+      iconFuncImpLight(":/img/icons/function_import_light.svg"),
+      iconFuncMainDark(":/img/icons/function_main_dark.svg"),
+      iconFuncMainLight(":/img/icons/function_main_light.svg"),
+      iconFuncDark(":/img/icons/function_dark.svg"),
+      iconFuncLight(":/img/icons/function_light.svg")
 
 {
-    connect(Core(), SIGNAL(seekChanged(RVA)), this, SLOT(seekChanged(RVA)));
-    connect(Core(), SIGNAL(functionRenamed(const QString &, const QString &)), this,
-            SLOT(functionRenamed(QString, QString)));
+    connect(Core(), &CutterCore::seekChanged, this, &FunctionModel::seekChanged);
+    connect(Core(), &CutterCore::functionRenamed, this, &FunctionModel::functionRenamed);
 }
 
 QModelIndex FunctionModel::index(int row, int column, const QModelIndex &parent) const
@@ -75,7 +85,7 @@ int FunctionModel::rowCount(const QModelIndex &parent) const
         return 0;
 }
 
-int FunctionModel::columnCount(const QModelIndex &/*parent*/) const
+int FunctionModel::columnCount(const QModelIndex & /*parent*/) const
 {
     if (nested)
         return 1;
@@ -100,6 +110,8 @@ QVariant FunctionModel::data(const QModelIndex &index, int role) const
 
     int function_index;
     bool subnode;
+    bool is_dark;
+
     if (index.internalId() != 0) { // sub-node
         function_index = index.parent().row();
         subnode = true;
@@ -119,23 +131,26 @@ QVariant FunctionModel::data(const QModelIndex &index, int role) const
             if (subnode) {
                 switch (index.row()) {
                 case 0:
-                    return tr("Offset: %1").arg(RAddressString(function.offset));
+                    return tr("Offset: %1").arg(RzAddressString(function.offset));
                 case 1:
-                    return tr("Size: %1").arg(RSizeString(function.linearSize));
+                    return tr("Size: %1").arg(RzSizeString(function.linearSize));
                 case 2:
-                    return tr("Import: %1").arg(functionIsImport(function.offset) ? tr("true") : tr("false"));
+                    return tr("Import: %1")
+                            .arg(functionIsImport(function.offset) ? tr("true") : tr("false"));
                 case 3:
-                    return tr("Nargs: %1").arg(RSizeString(function.nargs));
+                    return tr("Nargs: %1").arg(RzSizeString(function.nargs));
                 case 4:
-                    return tr("Nbbs: %1").arg(RSizeString(function.nbbs));
+                    return tr("Nbbs: %1").arg(RzSizeString(function.nbbs));
                 case 5:
-                    return tr("Nlocals: %1").arg(RSizeString(function.nlocals));
+                    return tr("Nlocals: %1").arg(RzSizeString(function.nlocals));
                 case 6:
                     return tr("Call type: %1").arg(function.calltype);
                 case 7:
                     return tr("Edges: %1").arg(function.edges);
                 case 8:
                     return tr("StackFrame: %1").arg(function.stackframe);
+                case 9:
+                    return tr("Comment: %1").arg(Core()->getCommentAt(function.offset));
                 default:
                     return QVariant();
                 }
@@ -147,8 +162,10 @@ QVariant FunctionModel::data(const QModelIndex &index, int role) const
                 return function.name;
             case SizeColumn:
                 return QString::number(function.linearSize);
+            case ImportColumn:
+                return functionIsImport(function.offset) ? tr("true") : tr("false");
             case OffsetColumn:
-                return RAddressString(function.offset);
+                return RzAddressString(function.offset);
             case NargsColumn:
                 return QString::number(function.nargs);
             case NlocalsColumn:
@@ -161,18 +178,44 @@ QVariant FunctionModel::data(const QModelIndex &index, int role) const
                 return QString::number(function.edges);
             case FrameColumn:
                 return QString::number(function.stackframe);
+            case CommentColumn:
+                return Core()->getCommentAt(function.offset);
             default:
                 return QVariant();
             }
         }
 
-    case Qt::DecorationRole:
-        if (importAddresses->contains(function.offset) &&
-                (nested ? false : index.column() == ImportColumn)) {
-            const static QIcon importIcon(":/img/icons/import_light.svg");
-            return importIcon;
+    case Qt::DecorationRole: {
+
+        // Check if we aren't inside a tree view
+        if (nested && subnode) {
+            return QVariant();
         }
+
+        if (index.column() == NameColumn) {
+            is_dark = Config()->windowColorIsDark();
+
+            if (functionIsImport(function.offset)) {
+                if (is_dark) {
+                    return iconFuncImpDark;
+                }
+                return iconFuncImpLight;
+
+            } else if (functionIsMain(function.offset)) {
+                if (is_dark) {
+                    return iconFuncMainDark;
+                }
+                return iconFuncMainLight;
+            }
+
+            if (is_dark) {
+                return iconFuncDark;
+            }
+            return iconFuncLight;
+        }
+
         return QVariant();
+    }
 
     case Qt::FontRole:
         if (currentIndex == function_index)
@@ -186,11 +229,18 @@ QVariant FunctionModel::data(const QModelIndex &index, int role) const
 
     case Qt::ToolTipRole: {
 
-        QStringList disasmPreview = Core()->getDisassemblyPreview(function.offset,
-                                                                  kMaxTooltipDisasmPreviewLines);
-        const QStringList &summary = Core()->cmdList(QString("pdsf @ %1").arg(function.offset));
+        QStringList disasmPreview =
+                Core()->getDisassemblyPreview(function.offset, kMaxTooltipDisasmPreviewLines);
+        QStringList summary {};
+        {
+            auto seeker = Core()->seekTemp(function.offset);
+            auto strings = fromOwnedCharPtr(rz_core_print_disasm_strings(
+                    Core()->core(), RZ_CORE_DISASM_STRINGS_MODE_FUNCTION, 0, NULL));
+            summary = strings.split('\n', CUTTER_QT_SKIP_EMPTY_PARTS);
+        }
+
         const QFont &fnt = Config()->getFont();
-        QFontMetrics fm{ fnt };
+        QFontMetrics fm { fnt };
 
         // elide long strings using current disasm font metrics
         QStringList highlights;
@@ -202,32 +252,39 @@ QVariant FunctionModel::data(const QModelIndex &index, int role) const
             }
         }
         if (disasmPreview.isEmpty() && highlights.isEmpty())
-            return QVariant();
+            return {};
 
         QString toolTipContent =
-            QString("<html><div style=\"font-family: %1; font-size: %2pt; white-space: nowrap;\">")
-            .arg(fnt.family())
-            .arg(qMax(6, fnt.pointSize() -
-                      1)); // slightly decrease font size, to keep more text in the same box
+                QString("<html><div style=\"font-family: %1; font-size: %2pt; white-space: "
+                        "nowrap;\">")
+                        .arg(fnt.family())
+                        .arg(qMax(6, fnt.pointSize() - 1)); // slightly decrease font size, to
+                                                            // keep more text in the same box
 
         if (!disasmPreview.isEmpty())
-            toolTipContent +=
-                tr("<div style=\"margin-bottom: 10px;\"><strong>Disassembly preview</strong>:<br>%1</div>")
-                .arg(disasmPreview.join("<br>"));
+            toolTipContent += tr("<div style=\"margin-bottom: 10px;\"><strong>Disassembly "
+                                 "preview</strong>:<br>%1</div>")
+                                      .arg(disasmPreview.join("<br>"));
 
         if (!highlights.isEmpty()) {
             toolTipContent += tr("<div><strong>Highlights</strong>:<br>%1</div>")
-                              .arg(highlights.join(QLatin1Char('\n')).toHtmlEscaped().replace(QLatin1Char('\n'), "<br>"));
+                                      .arg(highlights.join(QLatin1Char('\n'))
+                                                   .toHtmlEscaped()
+                                                   .replace(QLatin1Char('\n'), "<br>"));
         }
         toolTipContent += "</div></html>";
         return toolTipContent;
     }
 
     case Qt::ForegroundRole:
-        if (functionIsImport(function.offset))
+        if (functionIsImport(function.offset)) {
             return QVariant(ConfigColor("gui.imports"));
-        if (functionIsMain(function.offset))
+        } else if (functionIsMain(function.offset)) {
             return QVariant(ConfigColor("gui.main"));
+        } else if (function.name.startsWith("flirt.")) {
+            return QVariant(ConfigColor("gui.flirt"));
+        }
+
         return QVariant(this->property("color"));
 
     case FunctionDescriptionRole:
@@ -237,7 +294,7 @@ QVariant FunctionModel::data(const QModelIndex &index, int role) const
         return importAddresses->contains(function.offset);
 
     default:
-        return QVariant();
+        return {};
     }
 }
 
@@ -253,7 +310,7 @@ QVariant FunctionModel::headerData(int section, Qt::Orientation orientation, int
             case SizeColumn:
                 return tr("Size");
             case ImportColumn:
-                return tr("Imp.");
+                return tr("Import");
             case OffsetColumn:
                 return tr("Offset");
             case NargsColumn:
@@ -268,6 +325,8 @@ QVariant FunctionModel::headerData(int section, Qt::Orientation orientation, int
                 return tr("Edges");
             case FrameColumn:
                 return tr("StackFrame");
+            case CommentColumn:
+                return tr("Comment");
             default:
                 return QVariant();
             }
@@ -320,8 +379,7 @@ bool FunctionModel::updateCurrentIndex()
     for (int i = 0; i < functions->count(); i++) {
         const FunctionDescription &function = functions->at(i);
 
-        if (function.contains(seek)
-                && function.offset >= offset) {
+        if (function.contains(seek) && function.offset >= offset) {
             offset = function.offset;
             index = i;
         }
@@ -334,11 +392,11 @@ bool FunctionModel::updateCurrentIndex()
     return changed;
 }
 
-void FunctionModel::functionRenamed(const QString &prev_name, const QString &new_name)
+void FunctionModel::functionRenamed(const RVA offset, const QString &new_name)
 {
     for (int i = 0; i < functions->count(); i++) {
         FunctionDescription &function = (*functions)[i];
-        if (function.name == prev_name) {
+        if (function.offset == offset) {
             function.name = new_name;
             emit dataChanged(index(i, 0), index(i, columnCount() - 1));
         }
@@ -356,9 +414,10 @@ FunctionSortFilterProxyModel::FunctionSortFilterProxyModel(FunctionModel *source
 bool FunctionSortFilterProxyModel::filterAcceptsRow(int row, const QModelIndex &parent) const
 {
     QModelIndex index = sourceModel()->index(row, 0, parent);
-    FunctionDescription function = index.data(
-                                       FunctionModel::FunctionDescriptionRole).value<FunctionDescription>();
-    return function.name.contains(filterRegExp());
+    FunctionDescription function =
+            index.data(FunctionModel::FunctionDescriptionRole).value<FunctionDescription>();
+
+    return qhelpers::filterStringContains(function.name, this);
 }
 
 bool FunctionSortFilterProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
@@ -369,11 +428,10 @@ bool FunctionSortFilterProxyModel::lessThan(const QModelIndex &left, const QMode
     if (left.parent().isValid() || right.parent().isValid())
         return false;
 
-    FunctionDescription left_function = left.data(
-                                            FunctionModel::FunctionDescriptionRole).value<FunctionDescription>();
-    FunctionDescription right_function = right.data(
-                                             FunctionModel::FunctionDescriptionRole).value<FunctionDescription>();
-
+    FunctionDescription left_function =
+            left.data(FunctionModel::FunctionDescriptionRole).value<FunctionDescription>();
+    FunctionDescription right_function =
+            right.data(FunctionModel::FunctionDescriptionRole).value<FunctionDescription>();
 
     if (static_cast<FunctionModel *>(sourceModel())->isNested()) {
         return left_function.name < right_function.name;
@@ -416,6 +474,9 @@ bool FunctionSortFilterProxyModel::lessThan(const QModelIndex &left, const QMode
             if (left_function.stackframe != right_function.stackframe)
                 return left_function.stackframe < right_function.stackframe;
             break;
+        case FunctionModel::CommentColumn:
+            return Core()->getCommentAt(left_function.offset)
+                    < Core()->getCommentAt(right_function.offset);
         default:
             return false;
         }
@@ -424,41 +485,42 @@ bool FunctionSortFilterProxyModel::lessThan(const QModelIndex &left, const QMode
     }
 }
 
-FunctionsWidget::FunctionsWidget(MainWindow *main, QAction *action) :
-    ListDockWidget(main, action),
-    actionRename(tr("Rename"), this),
-    actionUndefine(tr("Undefine"), this),
-    actionHorizontal(tr("Horizontal"), this),
-    actionVertical(tr("Vertical"), this)
+FunctionsWidget::FunctionsWidget(MainWindow *main)
+    : ListDockWidget(main),
+      actionRename(tr("Rename"), this),
+      actionUndefine(tr("Undefine"), this),
+      actionHorizontal(tr("Horizontal"), this),
+      actionVertical(tr("Vertical"), this)
 {
     setWindowTitle(tr("Functions"));
     setObjectName("FunctionsWidget");
 
     setTooltipStylesheet();
-    connect(Config(), SIGNAL(colorsUpdated()), this, SLOT(setTooltipStylesheet()));
+    connect(Config(), &Configuration::colorsUpdated, this, &FunctionsWidget::setTooltipStylesheet);
 
     QFontInfo font_info = ui->treeView->fontInfo();
     QFont default_font = QFont(font_info.family(), font_info.pointSize());
     QFont highlight_font = QFont(font_info.family(), font_info.pointSize(), QFont::Bold);
 
-    functionModel = new FunctionModel(&functions, &importAddresses, &mainAdress, false, default_font,
-                                      highlight_font, this);
+    functionModel = new FunctionModel(&functions, &importAddresses, &mainAdress, false,
+                                      default_font, highlight_font, this);
     functionProxyModel = new FunctionSortFilterProxyModel(functionModel, this);
     setModels(functionProxyModel);
     ui->treeView->sortByColumn(FunctionModel::NameColumn, Qt::AscendingOrder);
-
+    ui->treeView->setExpandsOnDoubleClick(false);
 
     titleContextMenu = new QMenu(this);
     auto viewTypeGroup = new QActionGroup(titleContextMenu);
     actionHorizontal.setCheckable(true);
     actionHorizontal.setActionGroup(viewTypeGroup);
-    connect(&actionHorizontal, &QAction::toggled, this, &FunctionsWidget::onActionHorizontalToggled);
+    connect(&actionHorizontal, &QAction::toggled, this,
+            &FunctionsWidget::onActionHorizontalToggled);
     actionVertical.setCheckable(true);
     actionVertical.setActionGroup(viewTypeGroup);
     connect(&actionVertical, &QAction::toggled, this, &FunctionsWidget::onActionVerticalToggled);
     titleContextMenu->addActions(viewTypeGroup->actions());
 
-    actionRename.setShortcut({Qt::Key_N});
+    actionRename.setShortcut({ Qt::Key_N });
     actionRename.setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
     connect(&actionRename, &QAction::triggered, this,
             &FunctionsWidget::onActionFunctionsRenameTriggered);
@@ -474,14 +536,20 @@ FunctionsWidget::FunctionsWidget(MainWindow *main, QAction *action) :
     addActions(itemConextMenu->actions());
 
     // Use a custom context menu on the dock title bar
-    actionHorizontal.setChecked(true);
+    if (Config()->getFunctionsWidgetLayout() == "horizontal") {
+        actionHorizontal.setChecked(true);
+    } else {
+        actionVertical.setChecked(true);
+    }
     this->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(this, SIGNAL(customContextMenuRequested(const QPoint &)),
-            this, SLOT(showTitleContextMenu(const QPoint &)));
+    connect(this, &QWidget::customContextMenuRequested, this,
+            &FunctionsWidget::showTitleContextMenu);
 
     connect(Core(), &CutterCore::functionsChanged, this, &FunctionsWidget::refreshTree);
     connect(Core(), &CutterCore::codeRebased, this, &FunctionsWidget::refreshTree);
     connect(Core(), &CutterCore::refreshAll, this, &FunctionsWidget::refreshTree);
+    connect(Core(), &CutterCore::commentsChanged, this,
+            [this]() { qhelpers::emitColumnChanged(functionModel, FunctionModel::CommentColumn); });
 }
 
 FunctionsWidget::~FunctionsWidget() {}
@@ -493,25 +561,36 @@ void FunctionsWidget::refreshTree()
     }
 
     task = QSharedPointer<FunctionsTask>(new FunctionsTask());
-    connect(task.data(), &FunctionsTask::fetchFinished,
-    this, [this] (const QList<FunctionDescription> &functions) {
-        functionModel->beginResetModel();
+    connect(task.data(), &FunctionsTask::fetchFinished, this,
+            [this](const QList<FunctionDescription> &functions) {
+                functionModel->beginResetModel();
 
-        this->functions = functions;
+                this->functions = functions;
 
-        importAddresses.clear();
-        for (const ImportDescription &import : Core()->getAllImports()) {
-            importAddresses.insert(import.plt);
-        }
+                importAddresses.clear();
+                for (const ImportDescription &import : Core()->getAllImports()) {
+                    importAddresses.insert(import.plt);
+                }
 
-        mainAdress = (ut64)Core()->cmdj("iMj").object()["vaddr"].toInt();
+                mainAdress = RVA_INVALID;
+                RzCoreLocked core(Core());
+                RzBinFile *bf = rz_bin_cur(core->bin);
+                if (bf) {
+                    const RzBinAddr *binmain =
+                            rz_bin_object_get_special_symbol(bf->o, RZ_BIN_SPECIAL_SYMBOL_MAIN);
+                    if (binmain) {
+                        int va = core->io->va || core->bin->is_debugger;
+                        mainAdress = va ? rz_bin_object_addr_with_base(bf->o, binmain->vaddr)
+                                        : binmain->paddr;
+                    }
+                }
 
-        functionModel->updateCurrentIndex();
-        functionModel->endResetModel();
+                functionModel->updateCurrentIndex();
+                functionModel->endResetModel();
 
-        // resize offset and size columns
-        qhelpers::adjustColumns(ui->treeView, 3, 0);
-    });
+                // resize offset and size columns
+                qhelpers::adjustColumns(ui->treeView, 3, 0);
+            });
     Core()->getAsyncTaskManager()->start(task);
 }
 
@@ -523,35 +602,32 @@ void FunctionsWidget::changeSizePolicy(QSizePolicy::Policy hor, QSizePolicy::Pol
 void FunctionsWidget::onActionFunctionsRenameTriggered()
 {
     // Get selected item in functions tree view
-    FunctionDescription function = ui->treeView->selectionModel()->currentIndex().data(
-                                       FunctionModel::FunctionDescriptionRole).value<FunctionDescription>();
+    FunctionDescription function = ui->treeView->selectionModel()
+                                           ->currentIndex()
+                                           .data(FunctionModel::FunctionDescriptionRole)
+                                           .value<FunctionDescription>();
 
+    bool ok;
     // Create dialog
-    RenameDialog r(this);
-
-    // Set function name in dialog
-    r.setName(function.name);
+    QString newName =
+            QInputDialog::getText(this, tr("Rename function %1").arg(function.name),
+                                  tr("Function name:"), QLineEdit::Normal, function.name, &ok);
     // If user accepted
-    if (r.exec()) {
-        // Get new function name
-        QString new_name = r.getName();
-
-        // Rename function in r2 core
-        Core()->renameFunction(function.name, new_name);
+    if (ok && !newName.isEmpty()) {
+        // Rename function in rizin core
+        Core()->renameFunction(function.offset, newName);
 
         // Seek to new renamed function
         Core()->seekAndShow(function.offset);
     }
 }
 
-
 void FunctionsWidget::onActionFunctionsUndefineTriggered()
 {
     const auto selection = ui->treeView->selectionModel()->selection().indexes();
-    std::vector<RVA> offsets;
-    offsets.reserve(selection.size());
+    QSet<RVA> offsets;
     for (const auto &index : selection) {
-        offsets.push_back(functionProxyModel->address(index));
+        offsets.insert(functionProxyModel->address(index));
     }
     for (RVA offset : offsets) {
         Core()->delFunction(offset);
@@ -566,6 +642,7 @@ void FunctionsWidget::showTitleContextMenu(const QPoint &pt)
 void FunctionsWidget::onActionHorizontalToggled(bool enable)
 {
     if (enable) {
+        Config()->setFunctionsWidgetLayout("horizontal");
         functionModel->setNested(false);
         ui->treeView->setIndentation(8);
     }
@@ -574,6 +651,7 @@ void FunctionsWidget::onActionHorizontalToggled(bool enable)
 void FunctionsWidget::onActionVerticalToggled(bool enable)
 {
     if (enable) {
+        Config()->setFunctionsWidgetLayout("vertical");
         functionModel->setNested(true);
         ui->treeView->setIndentation(20);
     }
@@ -584,10 +662,5 @@ void FunctionsWidget::onActionVerticalToggled(bool enable)
  */
 void FunctionsWidget::setTooltipStylesheet()
 {
-    setStyleSheet(QString("QToolTip { border-width: 1px; max-width: %1px;" \
-                          "opacity: 230; background-color: %2;" \
-                          "color: %3; border-color: %3;}")
-                  .arg(kMaxTooltipWidth)
-                  .arg(Config()->getColor("gui.tooltip.background").name())
-                  .arg(Config()->getColor("gui.tooltip.foreground").name()));
+    setStyleSheet(DisassemblyPreview::getToolTipStyleSheet());
 }

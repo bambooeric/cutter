@@ -24,7 +24,8 @@ public:
 
 private:
     std::unique_ptr<Ui::AsmOptionsWidget> ui;
-    struct ConfigCheckbox {
+    struct ConfigCheckbox
+    {
         QCheckBox *checkBox;
         QString config;
     };
@@ -37,7 +38,6 @@ private slots:
 
     void updateAsmOptionsFromVars();
 
-
     void on_cmtcolSpinBox_valueChanged(int value);
 
     void on_syntaxComboBox_currentIndexChanged(int index);
@@ -48,13 +48,15 @@ private slots:
 
     void on_bytesCheckBox_toggled(bool checked);
     void on_varsubCheckBox_toggled(bool checked);
+    void on_previewCheckBox_toggled(bool checked);
 
     void on_buttonBox_clicked(QAbstractButton *button);
 
     void commentsComboBoxChanged(int index);
     void asmComboBoxChanged(int index);
+    void offsetCheckBoxToggled(bool checked);
+    void relOffCheckBoxToggled(bool checked);
     void checkboxEnabler(QCheckBox *checkbox, QString config);
 };
 
-
-#endif //ASMOPTIONSWIDGET_H
+#endif // ASMOPTIONSWIDGET_H

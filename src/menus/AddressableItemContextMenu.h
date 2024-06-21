@@ -5,7 +5,9 @@
 #include <QMenu>
 #include <QKeySequence>
 
-class AddressableItemContextMenu : public QMenu
+class MainWindow;
+
+class CUTTER_EXPORT AddressableItemContextMenu : public QMenu
 {
     Q_OBJECT
 
@@ -24,6 +26,7 @@ public slots:
     void clearTarget();
 signals:
     void xrefsTriggered();
+
 private:
     void onActionCopyAddress();
     void onActionShowXrefs();
@@ -37,6 +40,7 @@ private:
 
     RVA offset;
     bool hasTarget = false;
+
 protected:
     void setHasTarget(bool hasTarget);
     QAction *actionShowInMenu;

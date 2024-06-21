@@ -11,10 +11,8 @@
 
 #include <gvc.h>
 
-GraphvizLayout::GraphvizLayout(LineType lineType, Direction direction)
-    : GraphLayout({})
-    , direction(direction)
-    , lineType(lineType)
+GraphvizLayout::GraphvizLayout(LayoutType lineType, Direction direction)
+    : GraphLayout({}), direction(direction), layoutType(lineType)
 {
 }
 
@@ -48,7 +46,7 @@ static std::set<std::pair<ut64, ut64>> SelectLoopEdges(const GraphLayout::Graph 
     std::stack<std::pair<ut64, size_t>> stack;
     auto dfsFragment = [&visited, &graph, &stack, &result](ut64 first) {
         visited[first] = 1;
-        stack.push({first, 0});
+        stack.push({ first, 0 });
         while (!stack.empty()) {
             auto v = stack.top().first;
             auto edge_index = stack.top().second;
@@ -63,9 +61,9 @@ static std::set<std::pair<ut64, ut64>> SelectLoopEdges(const GraphLayout::Graph 
                 auto &targetState = visited[target];
                 if (targetState == 0) {
                     targetState = 1;
-                    stack.push({target, 0});
+                    stack.push({ target, 0 });
                 } else if (targetState == 1) {
-                    result.insert({v, target});
+                    result.insert({ v, target });
                 }
             } else {
                 stack.pop();
@@ -87,8 +85,8 @@ static std::set<std::pair<ut64, ut64>> SelectLoopEdges(const GraphLayout::Graph 
 void GraphvizLayout::CalculateLayout(std::unordered_map<ut64, GraphBlock> &blocks, ut64 entry,
                                      int &width, int &height) const
 {
-    //https://gitlab.com/graphviz/graphviz/issues/1441
-#define STR(v) const_cast<char*>(v)
+    // https://gitlab.com/graphviz/graphviz/issues/1441
+#define STR(v) const_cast<char *>(v)
 
     width = height = 10;
     GVC_t *gvc = gvContext();
@@ -96,14 +94,15 @@ void GraphvizLayout::CalculateLayout(std::unordered_map<ut64, GraphBlock> &block
 
     std::unordered_map<ut64, Agnode_t *> nodes;
     for (const auto &block : blocks) {
-        nodes[block.first] = agnode(g, nullptr, TRUE);
+        nodes[block.first] = agnode(g, nullptr, true);
     }
 
     std::vector<std::string> strc;
     strc.reserve(2 * blocks.size());
     std::map<std::pair<ut64, ut64>, Agedge_t *> edges;
 
-    agsafeset(g, STR("splines"), lineType == LineType::Ortho ? STR("ortho") : STR("polyline"), STR(""));
+    agsafeset(g, STR("splines"),
+              layoutType == LayoutType::DotOrtho ? STR("ortho") : STR("polyline"), STR(""));
     switch (direction) {
     case Direction::LR:
         agsafeset(g, STR("rankdir"), STR("LR"), STR(""));
@@ -144,9 +143,9 @@ void GraphvizLayout::CalculateLayout(std::unordered_map<ut64, GraphBlock> &block
             if (v == nodes.end()) {
                 continue;
             }
-            auto e = agedge(g, u, v->second, nullptr, TRUE);
-            edges[{blockIt.first, edge.target}] = e;
-            if (loopEdges.find({blockIt.first, edge.target}) != loopEdges.end()) {
+            auto e = agedge(g, u, v->second, nullptr, true);
+            edges[{ blockIt.first, edge.target }] = e;
+            if (loopEdges.find({ blockIt.first, edge.target }) != loopEdges.end()) {
                 agxset(e, constraintAttr, STR("0"));
             }
         }
@@ -154,7 +153,27 @@ void GraphvizLayout::CalculateLayout(std::unordered_map<ut64, GraphBlock> &block
         setFloatingPointAttr(u, heightAatr, block.height / dpi);
     }
 
-    gvLayout(gvc, g, "dot");
+    const char *layoutEngine = "dot";
+    switch (layoutType) {
+    case LayoutType::DotOrtho:
+    case LayoutType::DotPolyline:
+        layoutEngine = "dot";
+        break;
+    case LayoutType::Sfdp:
+        layoutEngine = "sfdp";
+        break;
+    case LayoutType::Neato:
+        layoutEngine = "neato";
+        break;
+    case LayoutType::TwoPi:
+        layoutEngine = "twopi";
+        break;
+    case LayoutType::Circo:
+        layoutEngine = "circo";
+        break;
+    }
+
+    gvLayout(gvc, g, layoutEngine);
 
     for (auto &blockIt : blocks) {
         auto &block = blockIt.second;
@@ -164,20 +183,21 @@ void GraphvizLayout::CalculateLayout(std::unordered_map<ut64, GraphBlock> &block
 
         auto w = ND_width(u) * dpi;
         auto h = ND_height(u) * dpi;
-        block.x = pos.x  - w / 2.0;
-        block.y = pos.y  - h / 2.0;
+        block.x = pos.x - w / 2.0;
+        block.y = pos.y - h / 2.0;
         width = std::max(width, block.x + block.width);
         height = std::max(height, block.y + block.height);
 
         for (auto &edge : block.edges) {
-            auto it = edges.find({blockIt.first, edge.target});
+            auto it = edges.find({ blockIt.first, edge.target });
             if (it != edges.end()) {
                 auto e = it->second;
                 if (auto spl = ED_spl(e)) {
-                    for (int i = 0; i < 1 && i < spl->size; i++) {
+                    for (size_t i = 0; i < 1 && i < spl->size; i++) {
                         auto bz = spl->list[i];
+                        edge.polyline.clear();
                         edge.polyline.reserve(bz.size + 1);
-                        for (int j = 0; j < bz.size; j++) {
+                        for (size_t j = 0; j < bz.size; j++) {
                             edge.polyline.push_back(QPointF(bz.list[j].x, bz.list[j].y));
                         }
                         QPointF last(0, 0);
@@ -191,13 +211,15 @@ void GraphvizLayout::CalculateLayout(std::unordered_map<ut64, GraphBlock> &block
 
                         if (edge.polyline.size() >= 2) {
                             // make sure self loops go from bottom to top
-                            if (edge.target == block.entry && edge.polyline.first().y() < edge.polyline.last().y()) {
+                            if (edge.target == block.entry
+                                && edge.polyline.first().y() < edge.polyline.last().y()) {
                                 std::reverse(edge.polyline.begin(), edge.polyline.end());
                             }
                             auto it = std::prev(edge.polyline.end());
                             QPointF direction = *it;
                             direction -= *(--it);
-                            edge.arrow = getArrowDirection(direction, lineType == LineType::Polyline);
+                            edge.arrow = getArrowDirection(direction,
+                                                           layoutType == LayoutType::DotPolyline);
 
                         } else {
                             edge.arrow = GraphEdge::Down;

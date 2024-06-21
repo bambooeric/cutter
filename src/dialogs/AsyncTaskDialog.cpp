@@ -4,11 +4,8 @@
 
 #include "ui_AsyncTaskDialog.h"
 
-
 AsyncTaskDialog::AsyncTaskDialog(AsyncTask::Ptr task, QWidget *parent)
-    : QDialog(parent),
-      ui(new Ui::AsyncTaskDialog),
-      task(task)
+    : QDialog(parent), ui(new Ui::AsyncTaskDialog), task(task)
 {
     ui->setupUi(this);
 
@@ -18,13 +15,11 @@ AsyncTaskDialog::AsyncTaskDialog(AsyncTask::Ptr task, QWidget *parent)
     }
 
     connect(task.data(), &AsyncTask::logChanged, this, &AsyncTaskDialog::updateLog);
-    connect(task.data(), &AsyncTask::finished, this, [this]() {
-        close();
-    });
+    connect(task.data(), &AsyncTask::finished, this, [this]() { close(); });
 
     updateLog(task->getLog());
 
-    connect(&timer, SIGNAL(timeout()), this, SLOT(updateProgressTimer()));
+    connect(&timer, &QTimer::timeout, this, &AsyncTaskDialog::updateProgressTimer);
     timer.setInterval(1000);
     timer.setSingleShot(false);
     timer.start();
@@ -32,9 +27,7 @@ AsyncTaskDialog::AsyncTaskDialog(AsyncTask::Ptr task, QWidget *parent)
     updateProgressTimer();
 }
 
-AsyncTaskDialog::~AsyncTaskDialog()
-{
-}
+AsyncTaskDialog::~AsyncTaskDialog() {}
 
 void AsyncTaskDialog::updateLog(const QString &log)
 {

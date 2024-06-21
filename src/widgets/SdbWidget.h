@@ -16,9 +16,25 @@ class SdbWidget : public CutterDockWidget
 {
     Q_OBJECT
 
+#if QT_VERSION < QT_VERSION_CHECK(5, 13, 0)
+#    define Q_DISABLE_COPY(SdbWidget)                                                              \
+        SdbWidget(const SdbWidget &s) = delete;                                                    \
+        SdbWidget &operator=(const SdbWidget &s) = delete;
+
+#    define Q_DISABLE_MOVE(SdbWidget)                                                              \
+        SdbWidget(SdbWidget &&s) = delete;                                                         \
+        SdbWidget &operator=(SdbWidget &&s) = delete;
+
+#    define Q_DISABLE_COPY_MOVE(SdbWidget)                                                         \
+        Q_DISABLE_COPY(SdbWidget)                                                                  \
+        Q_DISABLE_MOVE(SdbWidget)
+#endif
+
+    Q_DISABLE_COPY_MOVE(SdbWidget)
+
 public:
-    explicit SdbWidget(MainWindow *main, QAction *action = nullptr);
-    ~SdbWidget();
+    explicit SdbWidget(MainWindow *main);
+    ~SdbWidget() override;
 
 private slots:
     void on_treeWidget_itemDoubleClicked(QTreeWidgetItem *item, int column);
@@ -30,7 +46,6 @@ private slots:
 private:
     std::unique_ptr<Ui::SdbWidget> ui;
     QString path;
-
 };
 
 #endif // SDBWIDGET_H

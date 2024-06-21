@@ -5,9 +5,10 @@
 #include "core/Cutter.h"
 
 /**
- * @brief The CommandDescription struct is a pair of a radare2 command and its description
+ * @brief The CommandDescription struct is a pair of a Rizin command and its description
  */
-struct CommandDescription {
+struct CommandDescription
+{
     QString command;
     QString description;
 };
@@ -17,6 +18,7 @@ struct InitialOptions
     enum class Endianness { Auto, Little, Big };
 
     QString filename;
+    QString projectFile;
 
     bool useVA = true;
     RVA binLoadAddr = RVA_INVALID;
@@ -37,10 +39,10 @@ struct InitialOptions
 
     QString pdbFile;
     QString script;
-    
-    QList<CommandDescription> analCmd = { {"aaa", "Auto analysis"} };
+
+    QList<CommandDescription> analysisCmd = { { "aaa", "Auto analysis" } };
 
     QString shellcode;
 };
 
-#endif //CUTTER_INITIALOPTIONS_H
+#endif // CUTTER_INITIALOPTIONS_H

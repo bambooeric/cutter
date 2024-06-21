@@ -1,24 +1,24 @@
 #ifndef CUTTERSAMPLEPLUGIN_H
 #define CUTTERSAMPLEPLUGIN_H
 
-#include <QObject>
-#include <QtPlugin>
-#include "CutterPlugin.h"
+#include <CutterPlugin.h>
+
+#include <QLabel>
 
 class CutterSamplePlugin : public QObject, CutterPlugin
 {
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID "org.radare.cutter.plugins.CutterPlugin")
+    Q_PLUGIN_METADATA(IID "re.rizin.cutter.plugins.CutterPlugin")
     Q_INTERFACES(CutterPlugin)
 
 public:
     void setupPlugin() override;
     void setupInterface(MainWindow *main) override;
 
-    const QString &getName() const          { return "SamplePlugin"; }
-    const QString &getAuthor() const        { return "xarkes"; }
-    const QString &getDescription() const   { return "Just a sample plugin."; }
-    const QString &getVersion() const       { return "1.0"; }
+    QString getName() const override { return "SamplePlugin"; }
+    QString getAuthor() const override { return "xarkes"; }
+    QString getDescription() const override { return "Just a sample plugin."; }
+    QString getVersion() const override { return "1.0"; }
 };
 
 class CutterSamplePluginWidget : public CutterDockWidget
@@ -26,15 +26,14 @@ class CutterSamplePluginWidget : public CutterDockWidget
     Q_OBJECT
 
 public:
-    explicit CutterSamplePluginWidget(MainWindow *main, QAction *action);
+    explicit CutterSamplePluginWidget(MainWindow *main);
 
 private:
-    QLabel* text;
+    QLabel *text;
 
 private slots:
     void on_seekChanged(RVA addr);
     void on_buttonClicked();
 };
-
 
 #endif // CUTTERSAMPLEPLUGIN_H

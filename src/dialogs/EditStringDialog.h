@@ -1,6 +1,7 @@
 #ifndef EDITSTRINGDIALOG_H
 #define EDITSTRINGDIALOG_H
 
+#include <memory>
 #include <QDialog>
 
 namespace Ui {
@@ -12,7 +13,7 @@ class EditStringDialog : public QDialog
     Q_OBJECT
 
 public:
-    enum class StringType {Auto, ASCII_LATIN1, UTF8};
+    enum class StringType { Auto, ASCII_LATIN1, UTF8 };
     explicit EditStringDialog(QWidget *parent = nullptr);
     ~EditStringDialog();
 
@@ -29,7 +30,6 @@ public:
      * @return whether the call successful or not
      */
     bool getStringStartAddress(uint64_t &returnValue) const;
-
 
     /**
      * @brief Sets the size of string in the dialog
@@ -52,7 +52,7 @@ public:
     StringType getStringType() const;
 
 private:
-    Ui::EditStringDialog *ui;
+    std::unique_ptr<Ui::EditStringDialog> ui;
 };
 
 #endif // EDITSTRINGDIALOG_H

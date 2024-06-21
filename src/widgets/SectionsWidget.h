@@ -36,16 +36,27 @@ private:
     QList<SectionDescription> *sections;
 
 public:
-    enum Column { NameColumn = 0, SizeColumn, AddressColumn, EndAddressColumn, VirtualSizeColumn, PermissionsColumn, EntropyColumn, ColumnCount };
+    enum Column {
+        NameColumn = 0,
+        SizeColumn,
+        AddressColumn,
+        EndAddressColumn,
+        VirtualSizeColumn,
+        PermissionsColumn,
+        EntropyColumn,
+        CommentColumn,
+        ColumnCount
+    };
     enum Role { SectionDescriptionRole = Qt::UserRole };
 
     SectionsModel(QList<SectionDescription> *sections, QObject *parent = nullptr);
 
-    int rowCount(const QModelIndex &parent = QModelIndex()) const;
-    int columnCount(const QModelIndex &parent = QModelIndex()) const;
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+    int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
-    QVariant data(const QModelIndex &index, int role) const;
-    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
+    QVariant data(const QModelIndex &index, int role) const override;
+    QVariant headerData(int section, Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const override;
 
     RVA address(const QModelIndex &index) const override;
     QString name(const QModelIndex &index) const override;
@@ -67,12 +78,13 @@ class SectionsWidget : public ListDockWidget
     Q_OBJECT
 
 public:
-    explicit SectionsWidget(MainWindow *main, QAction *action = nullptr);
+    explicit SectionsWidget(MainWindow *main);
     ~SectionsWidget();
 
 private slots:
     void refreshSections();
     void refreshDocks();
+
 protected:
     void resizeEvent(QResizeEvent *event) override;
 
@@ -136,8 +148,8 @@ protected:
     int getIndicatorWidth();
     int getValidMinSize();
 
-    virtual RVA getSizeOfSection(const SectionDescription &section) =0;
-    virtual RVA getAddressOfSection(const SectionDescription &section) =0;
+    virtual RVA getSizeOfSection(const SectionDescription &section) = 0;
+    virtual RVA getAddressOfSection(const SectionDescription &section) = 0;
 
 private:
     void drawIndicator(QString name, float ratio);

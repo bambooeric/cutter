@@ -17,21 +17,18 @@
 #include <QInputDialog>
 #include <QShortcut>
 
-HexdumpWidget::HexdumpWidget(MainWindow *main, QAction *action) :
-    MemoryDockWidget(MemoryWidgetType::Hexdump, main, action),
-    ui(new Ui::HexdumpWidget)
+HexdumpWidget::HexdumpWidget(MainWindow *main)
+    : MemoryDockWidget(MemoryWidgetType::Hexdump, main), ui(new Ui::HexdumpWidget)
 {
     ui->setupUi(this);
 
-    setObjectName(main
-                  ? main->getUniqueObjectName(getWidgetType())
-                  : getWidgetType());
+    setObjectName(main ? main->getUniqueObjectName(getWidgetType()) : getWidgetType());
+    updateWindowTitle();
 
     ui->copyMD5->setIcon(QIcon(":/img/icons/copy.svg"));
     ui->copySHA1->setIcon(QIcon(":/img/icons/copy.svg"));
     ui->copySHA256->setIcon(QIcon(":/img/icons/copy.svg"));
     ui->copyCRC32->setIcon(QIcon(":/img/icons/copy.svg"));
-
 
     ui->splitter->setChildrenCollapsible(false);
 
@@ -43,15 +40,11 @@ HexdumpWidget::HexdumpWidget(MainWindow *main, QAction *action) :
     ui->hexSideTab_2->setCornerWidget(closeButton);
     syntaxHighLighter = Config()->createSyntaxHighlighter(ui->hexDisasTextEdit->document());
 
-    ui->openSideViewB->hide();  // hide button at startup since side view is visible
+    ui->openSideViewB->hide(); // hide button at startup since side view is visible
 
-    connect(closeButton, &QToolButton::clicked, this, [this] {
-        showSidePanel(false);
-    });
+    connect(closeButton, &QToolButton::clicked, this, [this] { showSidePanel(false); });
 
-    connect(ui->openSideViewB, &QToolButton::clicked, this, [this] {
-        showSidePanel(true);
-    });
+    connect(ui->openSideViewB, &QToolButton::clicked, this, [this] { showSidePanel(true); });
 
     // Set placeholders for the line-edit components
     QString placeholder = tr("Select bytes to display information");
@@ -76,16 +69,14 @@ HexdumpWidget::HexdumpWidget(MainWindow *main, QAction *action) :
                                      "  border-color : #3daee9"
                                      "}");
 
-    setWindowTitle(getWindowTitle());
-
-    refreshDeferrer = createReplacingRefreshDeferrer<RVA>(false, [this](const RVA *offset) {
-        refresh(offset ? *offset : RVA_INVALID);
-    });
+    refreshDeferrer = createReplacingRefreshDeferrer<RVA>(
+            false, [this](const RVA *offset) { refresh(offset ? *offset : RVA_INVALID); });
 
     this->ui->hexTextView->addAction(&syncAction);
 
     connect(Config(), &Configuration::fontsUpdated, this, &HexdumpWidget::fontsUpdated);
     connect(Core(), &CutterCore::refreshAll, this, [this]() { refresh(); });
+    connect(Core(), &CutterCore::refreshCodeViews, this, [this]() { refresh(); });
     connect(Core(), &CutterCore::instructionChanged, this, [this]() { refresh(); });
     connect(Core(), &CutterCore::stackChanged, this, [this]() { refresh(); });
     connect(Core(), &CutterCore::registersChanged, this, [this]() { refresh(); });
@@ -99,7 +90,8 @@ HexdumpWidget::HexdumpWidget(MainWindow *main, QAction *action) :
         }
     });
     connect(ui->hexTextView, &HexWidget::selectionChanged, this, &HexdumpWidget::selectionChanged);
-    connect(ui->hexSideTab_2, &QTabWidget::currentChanged, this, &HexdumpWidget::refreshSelectionInfo);
+    connect(ui->hexSideTab_2, &QTabWidget::currentChanged, this,
+            &HexdumpWidget::refreshSelectionInfo);
     ui->hexTextView->installEventFilter(this);
 
     initParsing();
@@ -145,10 +137,21 @@ void HexdumpWidget::refresh(RVA addr)
     sent_seek = false;
 }
 
-
 void HexdumpWidget::initParsing()
 {
     // Fill the plugins combo for the hexdump sidebar
+    ui->parseTypeComboBox->addItem(tr("Disassembly"), "pda");
+    ui->parseTypeComboBox->addItem(tr("String"), "pcs");
+    ui->parseTypeComboBox->addItem(tr("Assembler"), "pca");
+    ui->parseTypeComboBox->addItem(tr("C bytes"), "pc");
+    ui->parseTypeComboBox->addItem(tr("C half-words (2 byte)"), "pch");
+    ui->parseTypeComboBox->addItem(tr("C words (4 byte)"), "pcw");
+    ui->parseTypeComboBox->addItem(tr("C dwords (8 byte)"), "pcd");
+    ui->parseTypeComboBox->addItem(tr("Python"), "pcp");
+    ui->parseTypeComboBox->addItem(tr("JSON"), "pcj");
+    ui->parseTypeComboBox->addItem(tr("JavaScript"), "pcJ");
+    ui->parseTypeComboBox->addItem(tr("Yara"), "pcy");
+
     ui->parseArchComboBox->insertItems(0, Core()->getAsmPluginNames());
 
     ui->parseEndianComboBox->setCurrentIndex(Core()->getConfigb("cfg.bigendian") ? 1 : 0);
@@ -159,16 +162,17 @@ void HexdumpWidget::selectionChanged(HexWidget::Selection selection)
     if (selection.empty) {
         clearParseWindow();
     } else {
-        updateParseWindow(selection.startAddress, selection.endAddress - selection.startAddress + 1);
+        updateParseWindow(selection.startAddress,
+                          selection.endAddress - selection.startAddress + 1);
     }
 }
 
-void HexdumpWidget::on_parseArchComboBox_currentTextChanged(const QString &/*arg1*/)
+void HexdumpWidget::on_parseArchComboBox_currentTextChanged(const QString & /*arg1*/)
 {
     refreshSelectionInfo();
 }
 
-void HexdumpWidget::on_parseBitsComboBox_currentTextChanged(const QString &/*arg1*/)
+void HexdumpWidget::on_parseBitsComboBox_currentTextChanged(const QString & /*arg1*/)
 {
     refreshSelectionInfo();
 }
@@ -226,62 +230,45 @@ void HexdumpWidget::updateParseWindow(RVA start_address, int size)
         // Get selected combos
         QString arch = ui->parseArchComboBox->currentText();
         QString bits = ui->parseBitsComboBox->currentText();
-        QString selectedCommand = "";
+        QString selectedCommand = ui->parseTypeComboBox->currentData().toString();
         QString commandResult = "";
         bool bigEndian = ui->parseEndianComboBox->currentIndex() == 1;
 
         TempConfig tempConfig;
-        tempConfig
-        .set("asm.arch", arch)
-        .set("asm.bits", bits)
-        .set("cfg.bigendian", bigEndian);
+        tempConfig.set("asm.arch", arch).set("asm.bits", bits).set("cfg.bigendian", bigEndian);
 
-        switch (ui->parseTypeComboBox->currentIndex()) {
-        case 0: // Disassembly
-            selectedCommand = "pda";
-            break;
-        case 1: // String
-            selectedCommand = "pcs";
-            break;
-        case 2: // Assembler
-            selectedCommand = "pca";
-            break;
-        case 3: // C byte array
-            selectedCommand = "pc";
-            break;
-        case 4: // C half-word
-            selectedCommand = "pch";
-            break;
-        case 5: // C word
-            selectedCommand = "pcw";
-            break;
-        case 6: // C dword
-            selectedCommand = "pcd";
-            break;
-        case 7: // Python
-            selectedCommand = "pcp";
-            break;
-        case 8: // JSON
-            selectedCommand = "pcj";
-            break;
-        case 9: // JavaScript
-            selectedCommand = "pcJ";
-            break;
-        case 10: // Yara
-            selectedCommand = "pcy";
-            break;
-        }
-        ui->hexDisasTextEdit->setPlainText(selectedCommand != "" ? Core()->cmdRawAt(QString("%1 %2")
-                                                                    .arg(selectedCommand)
-                                                                    .arg(size)
-                                                                    , start_address) : "");
+        ui->hexDisasTextEdit->setPlainText(
+                selectedCommand != "" ? Core()->cmdRawAt(
+                        QString("%1 @! %2").arg(selectedCommand).arg(size), start_address)
+                                      : "");
     } else {
         // Fill the information tab hashes and entropy
-        ui->bytesMD5->setText(Core()->cmdRawAt(QString("ph md5 %1").arg(size), start_address).trimmed());
-        ui->bytesSHA1->setText(Core()->cmdRawAt(QString("ph sha1 %1").arg(size), start_address).trimmed());
-        ui->bytesSHA256->setText(Core()->cmdRawAt(QString("ph sha256 %1").arg(size), start_address).trimmed());
-        ui->bytesCRC32->setText(Core()->cmdRawAt(QString("ph crc32 %1").arg(size), start_address).trimmed());
-        ui->bytesEntropy->setText(Core()->cmdRawAt(QString("ph entropy %1").arg(size), start_address).trimmed());
+        RzHashSize digest_size = 0;
+        RzCoreLocked core(Core());
+        ut64 old_offset = core->offset;
+        rz_core_seek(core, start_address, true);
+        ut8 *block = core->block;
+        char *digest = rz_hash_cfg_calculate_small_block_string(core->hash, "md5", block, size,
+                                                                &digest_size, false);
+        ui->bytesMD5->setText(QString(digest));
+        free(digest);
+        digest = rz_hash_cfg_calculate_small_block_string(core->hash, "sha1", block, size,
+                                                          &digest_size, false);
+        ui->bytesSHA1->setText(QString(digest));
+        free(digest);
+        digest = rz_hash_cfg_calculate_small_block_string(core->hash, "sha256", block, size,
+                                                          &digest_size, false);
+        ui->bytesSHA256->setText(QString(digest));
+        free(digest);
+        digest = rz_hash_cfg_calculate_small_block_string(core->hash, "crc32", block, size,
+                                                          &digest_size, false);
+        ui->bytesCRC32->setText(QString(digest));
+        free(digest);
+        digest = rz_hash_cfg_calculate_small_block_string(core->hash, "entropy", block, size,
+                                                          &digest_size, false);
+        ui->bytesEntropy->setText(QString(digest));
+        free(digest);
+        rz_core_seek(core, old_offset, true);
         ui->bytesMD5->setCursorPosition(0);
         ui->bytesSHA1->setCursorPosition(0);
         ui->bytesSHA256->setCursorPosition(0);
@@ -291,7 +278,8 @@ void HexdumpWidget::updateParseWindow(RVA start_address, int size)
 
 void HexdumpWidget::on_parseTypeComboBox_currentTextChanged(const QString &)
 {
-    if (ui->parseTypeComboBox->currentIndex() == 0) {
+    QString currentParseTypeText = ui->parseTypeComboBox->currentData().toString();
+    if (currentParseTypeText == "pda" || currentParseTypeText == "pci") {
         ui->hexSideFrame_2->show();
     } else {
         ui->hexSideFrame_2->hide();
@@ -322,7 +310,6 @@ void HexdumpWidget::on_hexSideTab_2_currentChanged(int /*index*/)
     }
     */
 }
-
 
 void HexdumpWidget::resizeEvent(QResizeEvent *event)
 {

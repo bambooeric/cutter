@@ -14,17 +14,18 @@ public:
 
     /**
      * @brief setShowOnlyCustom sets whether or not combobox should contain only
-     * custom themes (created by user or imported) or custom and srandard radare2 themes.
+     * custom themes (created by user or imported) or custom and srandard rizin themes.
      */
     void setShowOnlyCustom(bool value);
 
 public slots:
     /**
-    * @brief updateFromConfig updates list of themes to be shown.
-    * @param interfaceThemeChanged should be set to true if the interface theme of Cutter was changed
-    * since the last call to the function. This will preserve the selected item in the combo box.
-    *
-    */
+     * @brief updateFromConfig updates list of themes to be shown.
+     * @param interfaceThemeChanged should be set to true if the interface theme of Cutter was
+     * changed since the last call to the function. This will preserve the selected item in the
+     * combo box.
+     *
+     */
     void updateFromConfig(bool interfaceThemeChanged = false);
 
 private slots:

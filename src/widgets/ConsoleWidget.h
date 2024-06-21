@@ -24,22 +24,17 @@ class ConsoleWidget : public CutterDockWidget
     Q_OBJECT
 
 public:
-    explicit ConsoleWidget(MainWindow *main, QAction *action = nullptr);
+    explicit ConsoleWidget(MainWindow *main);
 
     ~ConsoleWidget();
 
-    void setDebugOutputEnabled(bool enabled)
-    {
-        debugOutputEnabled = enabled;
-    }
+    void setDebugOutputEnabled(bool enabled) { debugOutputEnabled = enabled; }
 
-    void setMaxHistoryEntries(int max)
-    {
-        maxHistoryEntries = max;
-    }
+    void setMaxHistoryEntries(int max) { maxHistoryEntries = max; }
 
 protected:
-    bool eventFilter(QObject *obj, QEvent *event);
+    bool eventFilter(QObject *obj, QEvent *event) override;
+    QWidget *widgetToFocusOnRaise() override;
 
 public slots:
     void focusInputLineEdit();
@@ -50,7 +45,7 @@ public slots:
 private slots:
     void setupFont();
 
-    void on_r2InputLineEdit_returnPressed();
+    void on_rzInputLineEdit_returnPressed();
     void on_debugeeInputLineEdit_returnPressed();
     void onIndexChange();
 
@@ -101,19 +96,18 @@ private:
     QCompleter *completer;
     QShortcut *historyUpShortcut;
     QShortcut *historyDownShortcut;
-    FILE *origStderr;
-    FILE *origStdout;
-    FILE *origStdin;
-    QLocalSocket *pipeSocket;
+    FILE *origStderr = nullptr;
+    FILE *origStdout = nullptr;
+    FILE *origStdin = nullptr;
+    QLocalSocket *pipeSocket = nullptr;
 #ifdef Q_OS_WIN
     HANDLE hRead;
     HANDLE hWrite;
 #else
     int redirectPipeFds[2];
-    int stdinFile;
+    int stdinFile = -1;
     QString stdinFifoPath;
     QVector<char> *redirectionBuffer;
-    QSocketNotifier *outputNotifier;
 #endif
 };
 

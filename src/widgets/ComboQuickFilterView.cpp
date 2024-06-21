@@ -1,15 +1,18 @@
 #include "ComboQuickFilterView.h"
 #include "ui_ComboQuickFilterView.h"
 
-ComboQuickFilterView::ComboQuickFilterView(QWidget *parent) :
-    QWidget(parent),
-    ui(new Ui::ComboQuickFilterView)
+ComboQuickFilterView::ComboQuickFilterView(QWidget *parent)
+    : QWidget(parent), ui(new Ui::ComboQuickFilterView)
 {
     ui->setupUi(this);
 
-    connect(ui->lineEdit, &QLineEdit::textChanged, this, [this](const QString & text) {
-        emit filterTextChanged(text);
-    });
+    debounceTimer = new QTimer(this);
+    debounceTimer->setSingleShot(true);
+
+    connect(debounceTimer, &QTimer::timeout, this,
+            [this]() { emit filterTextChanged(ui->lineEdit->text()); });
+
+    connect(ui->lineEdit, &QLineEdit::textChanged, this, [this]() { debounceTimer->start(150); });
 }
 
 ComboQuickFilterView::~ComboQuickFilterView()

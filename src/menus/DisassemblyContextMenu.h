@@ -6,7 +6,9 @@
 #include <QMenu>
 #include <QKeySequence>
 
-class DisassemblyContextMenu : public QMenu
+class MainWindow;
+
+class CUTTER_EXPORT DisassemblyContextMenu : public QMenu
 {
     Q_OBJECT
 
@@ -29,6 +31,7 @@ public slots:
 
 private slots:
     void aboutToShowSlot();
+    void aboutToHideSlot();
 
     void on_actionEditFunction_triggered();
     void on_actionEditInstruction_triggered();
@@ -39,13 +42,14 @@ private slots:
 
     void on_actionCopy_triggered();
     void on_actionCopyAddr_triggered();
+    void on_actionCopyInstrBytes_triggered();
     void on_actionAddComment_triggered();
     void on_actionAnalyzeFunction_triggered();
-    void on_actionAddFlag_triggered();
     void on_actionRename_triggered();
-    void on_actionRenameUsedHere_triggered();
+    void on_actionGlobalVar_triggered();
     void on_actionSetFunctionVarTypes_triggered();
     void on_actionXRefs_triggered();
+    void on_actionXRefsForVariables_triggered();
     void on_actionDisplayOptions_triggered();
 
     void on_actionDeleteComment_triggered();
@@ -72,24 +76,18 @@ private slots:
      */
     void on_actionStructureOffsetMenu_triggered(QAction *action);
 
-    /**
-     * @brief Executed on selecting the "Link Type to Address" option
-     * Opens the LinkTypeDialog box from where the user can link the address
-     * to a type
-     */
-    void on_actionLinkType_triggered();
-
 private:
     QKeySequence getCopySequence() const;
     QKeySequence getCommentSequence() const;
     QKeySequence getCopyAddressSequence() const;
+    QKeySequence getCopyInstrBytesSequence() const;
+    QKeySequence getGlobalVarSequence() const;
     QKeySequence getSetToCodeSequence() const;
     QKeySequence getSetAsStringSequence() const;
+    QKeySequence getSetAsStringAdvanced() const;
     QKeySequence getSetToDataSequence() const;
     QKeySequence getSetToDataExSequence() const;
-    QKeySequence getAddFlagSequence() const;
     QKeySequence getRenameSequence() const;
-    QKeySequence getRenameUsedHereSequence() const;
     QKeySequence getRetypeSequence() const;
     QKeySequence getXRefSequence() const;
     QKeySequence getDisplayOptionsSequence() const;
@@ -97,12 +95,6 @@ private:
     QKeySequence getUndefineFunctionSequence() const;
     QKeySequence getEditFunctionSequence() const;
     QList<QKeySequence> getAddBPSequence() const;
-
-    /**
-     * @return the shortcut key for "Link Type to Address" option
-     */
-    QKeySequence getLinkTypeSequence() const;
-
 
     RVA offset;
     bool canCopy;
@@ -121,16 +113,16 @@ private:
     QAction actionCopy;
     QAction *copySeparator;
     QAction actionCopyAddr;
-
+    QAction actionCopyInstrBytes;
 
     QAction actionAddComment;
-    QAction actionAddFlag;
     QAction actionAnalyzeFunction;
     QAction actionEditFunction;
     QAction actionRename;
-    QAction actionRenameUsedHere;
+    QAction actionGlobalVar;
     QAction actionSetFunctionVarTypes;
     QAction actionXRefs;
+    QAction actionXRefsForVariables;
     QAction actionDisplayOptions;
 
     QAction actionDeleteComment;
@@ -138,8 +130,6 @@ private:
     QAction actionDeleteFunction;
 
     QMenu *structureOffsetMenu;
-
-    QAction actionLinkType;
 
     QMenu *setBaseMenu;
     QAction actionSetBaseBinary;
@@ -180,16 +170,22 @@ private:
     QAction actionSetToDataQword;
 
     QAction showInSubmenu;
-    QList<QAction*> showTargetMenuActions;
+    QList<QAction *> showTargetMenuActions;
     QMenu *pluginMenu = nullptr;
     QAction *pluginActionMenuAction = nullptr;
+
+    /**
+     * \return widget that should be used as parent for presenting dialogs
+     */
+    QWidget *parentForDialog();
 
     // For creating anonymous entries (that are always visible)
     QAction *addAnonymousAction(QString name, const char *slot, QKeySequence shortcut);
 
     void initAction(QAction *action, QString name, const char *slot = nullptr);
     void initAction(QAction *action, QString name, const char *slot, QKeySequence keySequence);
-    void initAction(QAction *action, QString name, const char *slot, QList<QKeySequence> keySequence);
+    void initAction(QAction *action, QString name, const char *slot,
+                    QList<QKeySequence> keySequence);
 
     void setBase(QString base);
     void setToData(int size, int repeat = 1);
@@ -200,22 +196,65 @@ private:
     void addSetAsMenu();
     void addSetToDataMenu();
     void addEditMenu();
+    void addAddAtMenu();
     void addBreakpointMenu();
     void addDebugMenu();
 
-    struct ThingUsedHere {
+    enum DoRenameAction {
+        RENAME_FUNCTION,
+        RENAME_FLAG,
+        RENAME_ADD_FLAG,
+        RENAME_LOCAL,
+        RENAME_DO_NOTHING,
+    };
+    struct DoRenameInfo
+    {
+        ut64 addr;
+        QString name;
+    };
+    DoRenameAction doRenameAction = RENAME_DO_NOTHING;
+    DoRenameInfo doRenameInfo = {};
+
+    /*
+     * @brief Setups up the "Rename" option in the context menu
+     *
+     * This function takes into account cursor location so it can choose between current address and
+     * pointed value i.e. `0x000040f3  lea rdi, [0x000199b1]` -> does the user want to add a flag at
+     * 0x40f3 or at 0x199b1? and for that we will rely on |curHighlightedWord| which is the
+     * currently selected word.
+     */
+    void setupRenaming();
+
+    /**
+     * @brief Checks if the currently highlighted word in the disassembly widget
+     * is a local variable or function paramter.
+     * @return Return true if the highlighted word is the name of a local variable or function
+     * parameter, return false otherwise.
+     */
+    bool isHighlightedWordLocalVar();
+    struct ThingUsedHere
+    {
         QString name;
         RVA offset;
-        enum class Type {
-            Var,
-            Function,
-            Flag,
-            Address
-        };
+        enum class Type { Var, Function, Flag, Address };
         Type type;
     };
     QVector<ThingUsedHere> getThingUsedHere(RVA offset);
 
-    void updateTargetMenuActions(const QVector<ThingUsedHere> &targets);
+    /*
+     * @brief This function checks if the given address contains a function,
+     * a flag or if it is just an address.
+     */
+    ThingUsedHere getThingAt(ut64 address);
+
+    /*
+     * @brief This function will set the text for the renaming menu given a ThingUsedHere
+     * and provide information on how to handle the renaming of this specific thing.
+     * Indeed, selected dialogs are different when it comes to adding a flag, renaming an existing
+     * function, renaming a local variable...
+     *
+     * This function handles every possible object.
+     */
+    void buildRenameMenu(ThingUsedHere *tuh);
 };
 #endif // DISASSEMBLYCONTEXTMENU_H

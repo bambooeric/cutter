@@ -17,16 +17,17 @@ class EditMethodDialog : public QDialog
 
 public:
     /**
-     * @param classFixed whether the user should be able to change the class. If false, a QComboBox will be shown, otherwise a plain QLabel.
+     * @param classFixed whether the user should be able to change the class. If false, a QComboBox
+     * will be shown, otherwise a plain QLabel.
      */
     explicit EditMethodDialog(bool classFixed, QWidget *parent = nullptr);
     ~EditMethodDialog();
 
     void setClass(const QString &className);
-    void setMethod(const AnalMethodDescription &desc);
+    void setMethod(const AnalysisMethodDescription &desc);
 
     QString getClass() const;
-    AnalMethodDescription getMethod() const;
+    AnalysisMethodDescription getMethod() const;
 
     /**
      * @brief Helper function to display the dialog
@@ -37,17 +38,20 @@ public:
      * @param desc initial data for the method information
      * @return whether the dialog was accepted by the user
      */
-    static bool showDialog(const QString &title, bool classFixed, QString *className, AnalMethodDescription *desc, QWidget *parent = nullptr);
+    static bool showDialog(const QString &title, bool classFixed, QString *className,
+                           AnalysisMethodDescription *desc, QWidget *parent = nullptr);
 
     /**
      * @brief Show the dialog to add a new method a given class
      */
-    static void newMethod(QString className = nullptr, const QString &meth = QString(), QWidget *parent = nullptr);
+    static void newMethod(QString className = nullptr, const QString &meth = QString(),
+                          QWidget *parent = nullptr);
 
     /**
      * @brief Show the dialog to edit a given method of a given class
      */
-    static void editMethod(const QString &className, const QString &meth, QWidget *parent = nullptr);
+    static void editMethod(const QString &className, const QString &meth,
+                           QWidget *parent = nullptr);
 
 private slots:
     void on_buttonBox_accepted();
@@ -55,6 +59,8 @@ private slots:
 
     void updateVirtualUI();
     void validateInput();
+    void updateName();
+    void updateAutoRenameEnabled();
 
 private:
     std::unique_ptr<Ui::EditMethodDialog> ui;
@@ -62,11 +68,13 @@ private:
     QComboBox *classComboBox = nullptr;
     QLabel *classLabel = nullptr;
     /**
-     * This will only be used when the dialog was created with classFixed = true in order to remember the class name.
+     * This will only be used when the dialog was created with classFixed = true in order to
+     * remember the class name.
      */
     QString fixedClass;
 
     bool inputValid();
+    static QString convertRealNameToName(const QString &realName);
 };
 
 #endif // EDITMETHODDIALOG_H

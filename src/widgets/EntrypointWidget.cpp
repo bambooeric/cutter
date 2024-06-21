@@ -7,14 +7,12 @@
 #include <QTreeWidget>
 #include <QPen>
 
-
 /*
  * Entrypoint Widget
  */
 
-EntrypointWidget::EntrypointWidget(MainWindow *main, QAction *action) :
-    CutterDockWidget(main, action),
-    ui(new Ui::EntrypointWidget)
+EntrypointWidget::EntrypointWidget(MainWindow *main)
+    : CutterDockWidget(main), ui(new Ui::EntrypointWidget)
 {
     ui->setupUi(this);
 
@@ -31,7 +29,7 @@ void EntrypointWidget::fillEntrypoint()
     ui->entrypointTreeWidget->clear();
     for (const EntrypointDescription &i : Core()->getAllEntrypoint()) {
         QTreeWidgetItem *item = new QTreeWidgetItem();
-        item->setText(0, RAddressString(i.vaddr));
+        item->setText(0, RzAddressString(i.vaddr));
         item->setText(1, i.type);
         item->setData(0, Qt::UserRole, QVariant::fromValue(i));
         ui->entrypointTreeWidget->addTopLevelItem(item);
@@ -45,8 +43,7 @@ void EntrypointWidget::setScrollMode()
     qhelpers::setVerticalScrollMode(ui->entrypointTreeWidget);
 }
 
-void EntrypointWidget::on_entrypointTreeWidget_itemDoubleClicked(QTreeWidgetItem *item,
-                                                                 int column)
+void EntrypointWidget::on_entrypointTreeWidget_itemDoubleClicked(QTreeWidgetItem *item, int column)
 {
     if (column < 0)
         return;

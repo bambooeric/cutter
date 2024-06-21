@@ -1,11 +1,11 @@
 #include "CommentsDialog.h"
 #include "ui_CommentsDialog.h"
 
+#include <QErrorMessage>
+
 #include "core/Cutter.h"
 
-CommentsDialog::CommentsDialog(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::CommentsDialog)
+CommentsDialog::CommentsDialog(QWidget *parent) : QDialog(parent), ui(new Ui::CommentsDialog)
 {
     ui->setupUi(this);
     setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
@@ -16,9 +16,7 @@ CommentsDialog::CommentsDialog(QWidget *parent) :
 
 CommentsDialog::~CommentsDialog() {}
 
-void CommentsDialog::on_buttonBox_accepted()
-{
-}
+void CommentsDialog::on_buttonBox_accepted() {}
 
 void CommentsDialog::on_buttonBox_rejected()
 {
@@ -38,20 +36,18 @@ void CommentsDialog::setComment(const QString &comment)
 
 void CommentsDialog::addOrEditComment(RVA offset, QWidget *parent)
 {
-    QString oldComment = Core()->cmdRawAt("CC.", offset);
-    // Remove newline at the end added by cmd
-    oldComment.remove(oldComment.length() - 1, 1);
-    CommentsDialog c(parent);
+    QString comment = Core()->getCommentAt(offset);
+    CommentsDialog dialog(parent);
 
-    if (oldComment.isNull() || oldComment.isEmpty()) {
-        c.setWindowTitle(tr("Add Comment at %1").arg(RAddressString(offset)));
+    if (comment.isNull() || comment.isEmpty()) {
+        dialog.setWindowTitle(tr("Add Comment at %1").arg(RzAddressString(offset)));
     } else {
-        c.setWindowTitle(tr("Edit Comment at %1").arg(RAddressString(offset)));
+        dialog.setWindowTitle(tr("Edit Comment at %1").arg(RzAddressString(offset)));
     }
 
-    c.setComment(oldComment);
-    if (c.exec()) {
-        QString comment = c.getComment();
+    dialog.setComment(comment);
+    if (dialog.exec()) {
+        comment = dialog.getComment();
         if (comment.isEmpty()) {
             Core()->delComment(offset);
         } else {
@@ -60,14 +56,14 @@ void CommentsDialog::addOrEditComment(RVA offset, QWidget *parent)
     }
 }
 
-bool CommentsDialog::eventFilter(QObject */*obj*/, QEvent *event)
+bool CommentsDialog::eventFilter(QObject * /*obj*/, QEvent *event)
 {
-    if (event -> type() == QEvent::KeyPress) {
-        QKeyEvent *keyEvent = static_cast <QKeyEvent *> (event);
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
 
         // Confirm comment by pressing Ctrl/Cmd+Return
-        if ((keyEvent -> modifiers() & Qt::ControlModifier) &&
-                ((keyEvent -> key() == Qt::Key_Enter) || (keyEvent -> key() == Qt::Key_Return))) {
+        if ((keyEvent->modifiers() & Qt::ControlModifier)
+            && ((keyEvent->key() == Qt::Key_Enter) || (keyEvent->key() == Qt::Key_Return))) {
             this->accept();
             return true;
         }

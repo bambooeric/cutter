@@ -18,18 +18,18 @@ namespace Ui {
 class RegisterRefsWidget;
 }
 
-
 class MainWindow;
 class QTreeWidgetItem;
 
-struct RegisterRefDescription {
+struct RegisterRefDescription
+{
     QString reg;
     QString value;
     RefDescription refDesc;
 };
 Q_DECLARE_METATYPE(RegisterRefDescription)
 
-class RegisterRefModel: public QAbstractListModel
+class RegisterRefModel : public QAbstractListModel
 {
     Q_OBJECT
 
@@ -39,7 +39,7 @@ private:
     QList<RegisterRefDescription> *registerRefs;
 
 public:
-    enum Column { RegColumn = 0, ValueColumn, RefColumn, ColumnCount };
+    enum Column { RegColumn = 0, ValueColumn, RefColumn, CommentColumn, ColumnCount };
     enum Role { RegisterRefDescriptionRole = Qt::UserRole };
 
     RegisterRefModel(QList<RegisterRefDescription> *registerRefs, QObject *parent = 0);
@@ -63,13 +63,12 @@ protected:
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
 };
 
-
 class RegisterRefsWidget : public CutterDockWidget
 {
     Q_OBJECT
 
 public:
-    explicit RegisterRefsWidget(MainWindow *main, QAction *action = nullptr);
+    explicit RegisterRefsWidget(MainWindow *main);
     ~RegisterRefsWidget();
 
 private slots:

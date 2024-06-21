@@ -23,7 +23,9 @@ Show Exports
 ----------------------------------------
 **Description:** Show a list of exported functions in the binary.  
 
-**Steps:** Windows -> Info... -> Exports  
+**Steps:** Windows -> Info... -> Exports   
+
+**Shortcut:** :kbd:`Shift` + :kbd:`E`
 
 Show Flags
 ----------------------------------------
@@ -41,11 +43,13 @@ Show Imports
 ----------------------------------------
 **Description:** Show the Imports widget with a list of all the imported functions required by the binary.  
 
-**Steps:** Windows -> Info... -> Imports  
+**Steps:** Windows -> Info... -> Imports   
+
+**Shortcut:** :kbd:`Shift` + :kbd:`I`
 
 Show Relocations
 ----------------------------------------
-**Description:** Show the Relocations widget, displaying list of relocation information.  
+**Description:** Show the Relocations widget, displaying a list of relocation information.  
 
 **Steps:** Windows -> Info... -> Relocs  
 
@@ -85,8 +89,8 @@ Show VTables
 
 **Steps:** Windows -> Info... -> VTables  
 
-Show Zignatures
+Show Signatures
 ----------------------------------------
-**Description:** Cutter has its own format of signatures, called Zignatures. This widget lists all the loaded Zignatures.  
+**Description:** Cutter supports the creation and the utilization of signatures. This widget lists all the signatures available to cutter.  
 
-**Steps:** Windows -> Info... -> Zignatures
+**Steps:** Windows -> Info... -> Signatures

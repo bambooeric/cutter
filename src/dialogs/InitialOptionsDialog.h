@@ -20,13 +20,13 @@ public:
     explicit InitialOptionsDialog(MainWindow *main);
     ~InitialOptionsDialog();
 
-    void setupAndStartAnalysis(/*int level, QList<QString> advanced*/);
+    void setupAndStartAnalysis();
 
 private slots:
     void on_okButton_clicked();
-    void on_analSlider_valueChanged(int value);
+    void on_analysisSlider_valueChanged(int value);
     void on_AdvOptButton_clicked();
-    void on_analCheckBox_clicked(bool checked);
+    void on_analysisCheckBox_clicked(bool checked);
     void on_archComboBox_currentIndexChanged(int index);
     void on_pdbSelectButton_clicked();
     void on_scriptSelectButton_clicked();
@@ -45,12 +45,12 @@ private:
 
     QString analysisDescription(int level);
     QString shellcode;
-    int analLevel;
-    QStringList asm_plugins;
-
+    int analysisLevel;
+    QList<RzAsmPluginDescription> asmPlugins;
 
     void updateCPUComboBox();
-    struct AnalysisCommands {
+    struct AnalysisCommands
+    {
         CommandDescription commandDesc;
         QCheckBox *checkbox;
         bool checked;
@@ -67,7 +67,7 @@ private:
 
     /**
      * @brief setTooltipWithConfigHelp is an helper function that add a tolltip to a widget with
-     * a description of a given radare2 eval config.
+     * a description of a given Rizin eval config.
      * @param w - a widget to which to add the tooltip
      * @param config - name of a configuration variable such as "asm.bits".
      */

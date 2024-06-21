@@ -16,13 +16,11 @@ namespace Ui {
 class HeadersWidget;
 }
 
-
 class MainWindow;
 class QTreeWidgetItem;
 class HeadersWidget;
 
-
-class HeadersModel: public AddressableItemModel<QAbstractListModel>
+class HeadersModel : public AddressableItemModel<QAbstractListModel>
 {
     Q_OBJECT
 
@@ -32,7 +30,7 @@ private:
     QList<HeaderDescription> *headers;
 
 public:
-    enum Column { OffsetColumn = 0, NameColumn, ValueColumn, ColumnCount };
+    enum Column { OffsetColumn = 0, NameColumn, ValueColumn, CommentColumn, ColumnCount };
     enum Role { HeaderDescriptionRole = Qt::UserRole };
 
     HeadersModel(QList<HeaderDescription> *headers, QObject *parent = nullptr);
@@ -41,13 +39,12 @@ public:
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
     QVariant data(const QModelIndex &index, int role) const override;
-    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+    QVariant headerData(int section, Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const override;
 
     RVA address(const QModelIndex &index) const override;
     QString name(const QModelIndex &index) const override;
 };
-
-
 
 class HeadersProxyModel : public AddressableFilterProxyModel
 {
@@ -61,14 +58,12 @@ protected:
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
 };
 
-
-
 class HeadersWidget : public ListDockWidget
 {
     Q_OBJECT
 
 public:
-    explicit HeadersWidget(MainWindow *main, QAction *action = nullptr);
+    explicit HeadersWidget(MainWindow *main);
     ~HeadersWidget();
 
 private slots:
@@ -79,6 +74,5 @@ private:
     HeadersProxyModel *headersProxyModel;
     QList<HeaderDescription> headers;
 };
-
 
 #endif // HEADERSWIDGET_H

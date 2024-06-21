@@ -10,8 +10,7 @@
 #include <QShortcut>
 
 StringsModel::StringsModel(QList<StringDescription> *strings, QObject *parent)
-    : AddressableItemModel<QAbstractListModel>(parent),
-      strings(strings)
+    : AddressableItemModel<QAbstractListModel>(parent), strings(strings)
 {
 }
 
@@ -36,7 +35,7 @@ QVariant StringsModel::data(const QModelIndex &index, int role) const
     case Qt::DisplayRole:
         switch (index.column()) {
         case StringsModel::OffsetColumn:
-            return RAddressString(str.vaddr);
+            return RzAddressString(str.vaddr);
         case StringsModel::StringColumn:
             return str.string;
         case StringsModel::TypeColumn:
@@ -47,6 +46,8 @@ QVariant StringsModel::data(const QModelIndex &index, int role) const
             return QString::number(str.size);
         case StringsModel::SectionColumn:
             return str.section;
+        case StringsModel::CommentColumn:
+            return Core()->getCommentAt(str.vaddr);
         default:
             return QVariant();
         }
@@ -74,6 +75,8 @@ QVariant StringsModel::headerData(int section, Qt::Orientation, int role) const
             return tr("Size");
         case StringsModel::SectionColumn:
             return tr("Section");
+        case StringsModel::CommentColumn:
+            return tr("Comment");
         default:
             return QVariant();
         }
@@ -100,14 +103,26 @@ StringsProxyModel::StringsProxyModel(StringsModel *sourceModel, QObject *parent)
     setSortCaseSensitivity(Qt::CaseInsensitive);
 }
 
+void StringsProxyModel::setSelectedSection(QString section)
+{
+    selectedSection = section;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    invalidateFilter();
+#else
+    invalidateRowsFilter();
+#endif
+}
+
 bool StringsProxyModel::filterAcceptsRow(int row, const QModelIndex &parent) const
 {
     QModelIndex index = sourceModel()->index(row, 0, parent);
-    StringDescription str = index.data(StringsModel::StringDescriptionRole).value<StringDescription>();
-    if (selectedSection.isEmpty())
-        return str.string.contains(filterRegExp());
-    else
-        return selectedSection == str.section && str.string.contains(filterRegExp());
+    StringDescription str =
+            index.data(StringsModel::StringDescriptionRole).value<StringDescription>();
+    if (selectedSection.isEmpty()) {
+        return qhelpers::filterStringContains(str.string, this);
+    } else {
+        return selectedSection == str.section && qhelpers::filterStringContains(str.string, this);
+    }
 }
 
 bool StringsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
@@ -129,6 +144,8 @@ bool StringsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
         return leftStr->length < rightStr->length;
     case StringsModel::SectionColumn:
         return leftStr->section < rightStr->section;
+    case StringsModel::CommentColumn:
+        return Core()->getCommentAt(leftStr->vaddr) < Core()->getCommentAt(rightStr->vaddr);
     default:
         break;
     }
@@ -137,10 +154,8 @@ bool StringsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
     return leftStr->vaddr < rightStr->vaddr;
 }
 
-StringsWidget::StringsWidget(MainWindow *main, QAction *action) :
-    CutterDockWidget(main, action),
-    ui(new Ui::StringsWidget),
-    tree(new CutterTreeWidget(this))
+StringsWidget::StringsWidget(MainWindow *main)
+    : CutterDockWidget(main), ui(new Ui::StringsWidget), tree(new CutterTreeWidget(this))
 {
     ui->setupUi(this);
     ui->quickFilterView->setLabelText(tr("Section:"));
@@ -152,12 +167,9 @@ StringsWidget::StringsWidget(MainWindow *main, QAction *action) :
 
     // Shift-F12 to toggle strings window
     QShortcut *toggle_shortcut = new QShortcut(widgetShortcuts["StringsWidget"], main);
-    connect(toggle_shortcut, &QShortcut::activated, this, [ = ] () {
-        toggleDockWidget(true);
-        main->updateDockActionChecked(action);
-    } );
+    connect(toggle_shortcut, &QShortcut::activated, this, [=]() { toggleDockWidget(true); });
 
-    connect(ui->actionCopy_String, SIGNAL(triggered()), this, SLOT(on_actionCopy()));
+    connect(ui->actionCopy_String, &QAction::triggered, this, &StringsWidget::on_actionCopy);
 
     ui->actionFilter->setShortcut(QKeySequence::Find);
 
@@ -173,12 +185,11 @@ StringsWidget::StringsWidget(MainWindow *main, QAction *action) :
     auto menu = ui->stringsTreeView->getItemContextMenu();
     menu->addAction(ui->actionCopy_String);
 
-    connect(ui->quickFilterView, SIGNAL(filterTextChanged(const QString &)), proxyModel,
-            SLOT(setFilterWildcard(const QString &)));
+    connect(ui->quickFilterView, &ComboQuickFilterView::filterTextChanged, proxyModel,
+            &QSortFilterProxyModel::setFilterWildcard);
 
-    connect(ui->quickFilterView, &ComboQuickFilterView::filterTextChanged, this, [this] {
-        tree->showItemsNumber(proxyModel->rowCount());
-    });
+    connect(ui->quickFilterView, &ComboQuickFilterView::filterTextChanged, this,
+            [this] { tree->showItemsNumber(proxyModel->rowCount()); });
 
     QShortcut *searchShortcut = new QShortcut(QKeySequence::Find, this);
     connect(searchShortcut, &QShortcut::activated, ui->quickFilterView,
@@ -194,15 +205,13 @@ StringsWidget::StringsWidget(MainWindow *main, QAction *action) :
 
     connect(Core(), &CutterCore::refreshAll, this, &StringsWidget::refreshStrings);
     connect(Core(), &CutterCore::codeRebased, this, &StringsWidget::refreshStrings);
+    connect(Core(), &CutterCore::commentsChanged, this,
+            [this]() { qhelpers::emitColumnChanged(model, StringsModel::CommentColumn); });
 
-    connect(
-        ui->quickFilterView->comboBox(), &QComboBox::currentTextChanged, this,
-        [this]() {
-            proxyModel->selectedSection = ui->quickFilterView->comboBox()->currentData().toString();
-            proxyModel->setFilterRegExp(proxyModel->filterRegExp());
-            tree->showItemsNumber(proxyModel->rowCount());
-        }
-    );
+    connect(ui->quickFilterView->comboBox(), &QComboBox::currentTextChanged, this, [this]() {
+        proxyModel->setSelectedSection(ui->quickFilterView->comboBox()->currentData().toString());
+        tree->showItemsNumber(proxyModel->rowCount());
+    });
 
     auto header = ui->stringsTreeView->header();
     header->setSectionResizeMode(QHeaderView::ResizeMode::ResizeToContents);
@@ -238,7 +247,7 @@ void StringsWidget::refreshSectionCombo()
         combo->addItem(section, section);
     }
 
-    proxyModel->selectedSection.clear();
+    proxyModel->setSelectedSection(QString());
 }
 
 void StringsWidget::stringSearchFinished(const QList<StringDescription> &strings)

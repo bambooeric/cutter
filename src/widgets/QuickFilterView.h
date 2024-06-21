@@ -2,15 +2,18 @@
 #ifndef QUICKFILTERVIEW_H
 #define QUICKFILTERVIEW_H
 
+#include "core/CutterCommon.h"
+
 #include <memory>
 
 #include <QWidget>
+#include <QTimer>
 
 namespace Ui {
 class QuickFilterView;
 }
 
-class QuickFilterView : public QWidget
+class CUTTER_EXPORT QuickFilterView : public QWidget
 {
     Q_OBJECT
 
@@ -29,6 +32,7 @@ signals:
 
 private:
     std::unique_ptr<Ui::QuickFilterView> ui;
+    QTimer *debounceTimer;
 };
 
-#endif //QUICKFILTERVIEW_H
+#endif // QUICKFILTERVIEW_H

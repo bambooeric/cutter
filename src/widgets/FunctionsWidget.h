@@ -22,12 +22,18 @@ private:
     QSet<RVA> *importAddresses;
     ut64 *mainAdress;
 
-
     QFont highlightFont;
     QFont defaultFont;
     bool nested;
 
     int currentIndex;
+
+    QIcon iconFuncImpDark;
+    QIcon iconFuncImpLight;
+    QIcon iconFuncMainDark;
+    QIcon iconFuncMainLight;
+    QIcon iconFuncDark;
+    QIcon iconFuncLight;
 
     bool functionIsImport(ut64 addr) const;
 
@@ -37,14 +43,27 @@ public:
     static const int FunctionDescriptionRole = Qt::UserRole;
     static const int IsImportRole = Qt::UserRole + 1;
 
-    enum Column { NameColumn = 0, SizeColumn, ImportColumn, OffsetColumn, NargsColumn, NlocalsColumn,
-                  NbbsColumn, CalltypeColumn, EdgesColumn, FrameColumn, ColumnCount
-                };
+    enum Column {
+        NameColumn = 0,
+        SizeColumn,
+        ImportColumn,
+        OffsetColumn,
+        NargsColumn,
+        NlocalsColumn,
+        NbbsColumn,
+        CalltypeColumn,
+        EdgesColumn,
+        FrameColumn,
+        CommentColumn,
+        ColumnCount
+    };
 
-    FunctionModel(QList<FunctionDescription> *functions, QSet<RVA> *importAddresses, ut64 *mainAdress,
-                  bool nested, QFont defaultFont, QFont highlightFont, QObject *parent = nullptr);
+    FunctionModel(QList<FunctionDescription> *functions, QSet<RVA> *importAddresses,
+                  ut64 *mainAdress, bool nested, QFont defaultFont, QFont highlightFont,
+                  QObject *parent = nullptr);
 
-    QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
+    QModelIndex index(int row, int column,
+                      const QModelIndex &parent = QModelIndex()) const override;
     QModelIndex parent(const QModelIndex &index) const override;
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -60,18 +79,14 @@ public:
     bool updateCurrentIndex();
 
     void setNested(bool nested);
-    bool isNested()
-    {
-        return nested;
-    }
+    bool isNested() { return nested; }
 
     RVA address(const QModelIndex &index) const override;
     QString name(const QModelIndex &index) const override;
 private slots:
     void seekChanged(RVA addr);
-    void functionRenamed(const QString &prev_name, const QString &new_name);
+    void functionRenamed(const RVA offset, const QString &new_name);
 };
-
 
 class FunctionSortFilterProxyModel : public AddressableFilterProxyModel
 {
@@ -85,14 +100,12 @@ protected:
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
 };
 
-
-
 class FunctionsWidget : public ListDockWidget
 {
     Q_OBJECT
 
 public:
-    explicit FunctionsWidget(MainWindow *main, QAction *action = nullptr);
+    explicit FunctionsWidget(MainWindow *main);
     ~FunctionsWidget() override;
     void changeSizePolicy(QSizePolicy::Policy hor, QSizePolicy::Policy ver);
 

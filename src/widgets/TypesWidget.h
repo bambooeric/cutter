@@ -18,12 +18,10 @@ namespace Ui {
 class TypesWidget;
 }
 
-
 class MainWindow;
 class QTreeWidgetItem;
 
-
-class TypesModel: public QAbstractListModel
+class TypesModel : public QAbstractListModel
 {
     Q_OBJECT
 
@@ -32,8 +30,13 @@ class TypesModel: public QAbstractListModel
 private:
     QList<TypeDescription> *types;
 
+    /**
+     * @brief Returns a description of the type for the given index
+     */
+    QVariant toolTipValue(const QModelIndex &index) const;
+
 public:
-    enum Columns { TYPE = 0, SIZE, FORMAT, CATEGORY, COUNT };
+    enum Columns { TYPE = 0, SIZE, CATEGORY, FORMAT, COUNT };
     static const int TypeDescriptionRole = Qt::UserRole;
 
     TypesModel(QList<TypeDescription> *types, QObject *parent = nullptr);
@@ -42,21 +45,19 @@ public:
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
     QVariant data(const QModelIndex &index, int role) const override;
-    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+    QVariant headerData(int section, Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const override;
 
     bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
 };
-
-
 
 class TypesSortFilterProxyModel : public QSortFilterProxyModel
 {
     Q_OBJECT
 
-    friend TypesWidget;
-
 public:
     TypesSortFilterProxyModel(TypesModel *source_model, QObject *parent = nullptr);
+    void setCategory(QString category);
 
 protected:
     bool filterAcceptsRow(int row, const QModelIndex &parent) const override;
@@ -65,14 +66,12 @@ protected:
     QString selectedCategory;
 };
 
-
-
 class TypesWidget : public CutterDockWidget
 {
     Q_OBJECT
 
 public:
-    explicit TypesWidget(MainWindow *main, QAction *action = nullptr);
+    explicit TypesWidget(MainWindow *main);
     ~TypesWidget();
 
 private slots:
@@ -87,7 +86,7 @@ private slots:
     /**
      * @brief Executed on clicking the Export Types option in the context menu
      * It shows the user a file dialog box to select a file where the types
-     * will be exported. It uses the "tc" command of radare2 to export the types.
+     * will be exported.
      */
     void on_actionExport_Types_triggered();
 
@@ -100,23 +99,16 @@ private slots:
 
     /**
      * @brief Executed on clicking either the Edit Type or View Type options in the context menu
-     * It will open the TypesInteractionDialog filled with the selected type. Depends on Edit or View mode
-     * the text view would be read-only or not.
+     * It will open the TypesInteractionDialog filled with the selected type. Depends on Edit or
+     * View mode the text view would be read-only or not.
      */
-    void viewType(bool readOnly=true);
-
+    void viewType(bool readOnly = true);
 
     /**
      * @brief Executed on clicking the Delete Type option in the context menu
      * Upon confirmation from the user, it will delete the selected type.
      */
     void on_actionDelete_Type_triggered();
-
-    /**
-     * @brief Executed on clicking the Link To Address option in the context menu
-     * Opens the LinkTypeDialog box from where the user can link a address to a type
-     */
-    void on_actionLink_Type_To_Address_triggered();
 
     /**
      * @brief triggers when the user double-clicks an item. This will open
@@ -142,6 +134,5 @@ private:
      */
     void refreshCategoryCombo(const QStringList &categories);
 };
-
 
 #endif // TYPESWIDGET_H

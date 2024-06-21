@@ -4,8 +4,7 @@
 #include "common/Helpers.h"
 
 HeadersModel::HeadersModel(QList<HeaderDescription> *headers, QObject *parent)
-    : AddressableItemModel<QAbstractListModel>(parent),
-      headers(headers)
+    : AddressableItemModel<QAbstractListModel>(parent), headers(headers)
 {
 }
 
@@ -30,11 +29,13 @@ QVariant HeadersModel::data(const QModelIndex &index, int role) const
     case Qt::DisplayRole:
         switch (index.column()) {
         case OffsetColumn:
-            return RAddressString(header.vaddr);
+            return RzAddressString(header.vaddr);
         case NameColumn:
             return header.name;
         case ValueColumn:
             return header.value;
+        case CommentColumn:
+            return Core()->getCommentAt(header.vaddr);
         default:
             return QVariant();
         }
@@ -56,6 +57,8 @@ QVariant HeadersModel::headerData(int section, Qt::Orientation, int role) const
             return tr("Name");
         case ValueColumn:
             return tr("Value");
+        case CommentColumn:
+            return tr("Comment");
         default:
             return QVariant();
         }
@@ -84,16 +87,17 @@ HeadersProxyModel::HeadersProxyModel(HeadersModel *sourceModel, QObject *parent)
 bool HeadersProxyModel::filterAcceptsRow(int row, const QModelIndex &parent) const
 {
     QModelIndex index = sourceModel()->index(row, 0, parent);
-    HeaderDescription item = index.data(HeadersModel::HeaderDescriptionRole).value<HeaderDescription>();
-    return item.name.contains(filterRegExp());
+    HeaderDescription item =
+            index.data(HeadersModel::HeaderDescriptionRole).value<HeaderDescription>();
+    return qhelpers::filterStringContains(item.name, this);
 }
 
 bool HeadersProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
 {
-    HeaderDescription leftHeader = left.data(
-                                       HeadersModel::HeaderDescriptionRole).value<HeaderDescription>();
-    HeaderDescription rightHeader = right.data(
-                                        HeadersModel::HeaderDescriptionRole).value<HeaderDescription>();
+    HeaderDescription leftHeader =
+            left.data(HeadersModel::HeaderDescriptionRole).value<HeaderDescription>();
+    HeaderDescription rightHeader =
+            right.data(HeadersModel::HeaderDescriptionRole).value<HeaderDescription>();
 
     switch (left.column()) {
     case HeadersModel::OffsetColumn:
@@ -102,6 +106,8 @@ bool HeadersProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
         return leftHeader.name < rightHeader.name;
     case HeadersModel::ValueColumn:
         return leftHeader.value < rightHeader.value;
+    case HeadersModel::CommentColumn:
+        return Core()->getCommentAt(leftHeader.vaddr) < Core()->getCommentAt(rightHeader.vaddr);
     default:
         break;
     }
@@ -109,8 +115,7 @@ bool HeadersProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
     return leftHeader.vaddr < rightHeader.vaddr;
 }
 
-HeadersWidget::HeadersWidget(MainWindow *main, QAction *action) :
-    ListDockWidget(main, action)
+HeadersWidget::HeadersWidget(MainWindow *main) : ListDockWidget(main)
 {
     setWindowTitle(tr("Headers"));
     setObjectName("HeadersWidget");
@@ -125,6 +130,8 @@ HeadersWidget::HeadersWidget(MainWindow *main, QAction *action) :
 
     connect(Core(), &CutterCore::codeRebased, this, &HeadersWidget::refreshHeaders);
     connect(Core(), &CutterCore::refreshAll, this, &HeadersWidget::refreshHeaders);
+    connect(Core(), &CutterCore::commentsChanged, this,
+            [this]() { qhelpers::emitColumnChanged(headersModel, HeadersModel::CommentColumn); });
 }
 
 HeadersWidget::~HeadersWidget() {}

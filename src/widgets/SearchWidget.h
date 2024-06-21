@@ -14,8 +14,7 @@ class MainWindow;
 class QTreeWidgetItem;
 class SearchWidget;
 
-
-class SearchModel: public AddressableItemModel<QAbstractListModel>
+class SearchModel : public AddressableItemModel<QAbstractListModel>
 {
     Q_OBJECT
 
@@ -25,7 +24,7 @@ private:
     QList<SearchDescription> *search;
 
 public:
-    enum Columns { OFFSET = 0, SIZE, CODE, DATA, COUNT };
+    enum Columns { OFFSET = 0, SIZE, CODE, DATA, COMMENT, COUNT };
     static const int SearchDescriptionRole = Qt::UserRole;
 
     SearchModel(QList<SearchDescription> *search, QObject *parent = nullptr);
@@ -34,12 +33,11 @@ public:
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
     QVariant data(const QModelIndex &index, int role) const override;
-    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+    QVariant headerData(int section, Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const override;
 
     RVA address(const QModelIndex &index) const override;
 };
-
-
 
 class SearchSortFilterProxyModel : public AddressableFilterProxyModel
 {
@@ -53,8 +51,6 @@ protected:
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
 };
 
-
-
 namespace Ui {
 class SearchWidget;
 }
@@ -64,11 +60,10 @@ class SearchWidget : public CutterDockWidget
     Q_OBJECT
 
 public:
-    explicit SearchWidget(MainWindow *main, QAction *action = nullptr);
+    explicit SearchWidget(MainWindow *main);
     ~SearchWidget();
 
 private slots:
-    void on_searchInCombo_currentIndexChanged(int index);
     void searchChanged();
     void updateSearchBoundaries();
     void refreshSearchspaces();
@@ -81,6 +76,9 @@ private:
     QList<SearchDescription> search;
 
     void refreshSearch();
+    void checkSearchResultEmpty();
+    void enableSearch();
+    void disableSearch();
     void setScrollMode();
     void updatePlaceholderText(int index);
 };

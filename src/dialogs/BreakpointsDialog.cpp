@@ -7,15 +7,14 @@
 #include <QCompleter>
 #include <QCheckBox>
 
-BreakpointsDialog::BreakpointsDialog(bool editMode, QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::BreakpointsDialog),
-    editMode(editMode)
+BreakpointsDialog::BreakpointsDialog(bool editMode, QWidget *parent)
+    : QDialog(parent), ui(new Ui::BreakpointsDialog), editMode(editMode)
 {
     ui->setupUi(this);
     setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
 
-    connect(ui->breakpointPosition, &QLineEdit::textChanged, this, &BreakpointsDialog::refreshOkButton);
+    connect(ui->breakpointPosition, &QLineEdit::textChanged, this,
+            &BreakpointsDialog::refreshOkButton);
     refreshOkButton();
 
     if (editMode) {
@@ -24,15 +23,16 @@ BreakpointsDialog::BreakpointsDialog(bool editMode, QWidget *parent) :
         setWindowTitle(tr("New breakpoint"));
     }
 
-
-    struct {
+    struct
+    {
         QString label;
         QString tooltip;
         BreakpointDescription::PositionType type;
     } positionTypes[] = {
-        {tr("Address"), tr("Address or expression calculated when creating breakpoint"), BreakpointDescription::Address},
-        {tr("Named"), tr("Expression - stored as expression"), BreakpointDescription::Named},
-        {tr("Module offset"), tr("Offset relative to module"), BreakpointDescription::Module},
+        { tr("Address"), tr("Address or expression calculated when creating breakpoint"),
+          BreakpointDescription::Address },
+        { tr("Named"), tr("Expression - stored as expression"), BreakpointDescription::Named },
+        { tr("Module offset"), tr("Offset relative to module"), BreakpointDescription::Module },
     };
     int index = 0;
     for (auto &item : positionTypes) {
@@ -41,8 +41,9 @@ BreakpointsDialog::BreakpointsDialog(bool editMode, QWidget *parent) :
         index++;
     }
 
-    connect(ui->positionType, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &BreakpointsDialog::onTypeChanged);
+    connect(ui->positionType,
+            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this,
+            &BreakpointsDialog::onTypeChanged);
     onTypeChanged();
 
     auto modules = Core()->getMemoryMap();
@@ -50,7 +51,7 @@ BreakpointsDialog::BreakpointsDialog(bool editMode, QWidget *parent) :
     for (const auto &module : modules) {
         moduleNames.insert(module.fileName);
     }
-    for (const auto& module : moduleNames) {
+    for (const auto &module : moduleNames) {
         ui->moduleName->addItem(module);
     }
     ui->moduleName->setCurrentText("");
@@ -66,7 +67,7 @@ BreakpointsDialog::BreakpointsDialog(const BreakpointDescription &breakpoint, QW
 {
     switch (breakpoint.type) {
     case BreakpointDescription::Address:
-        ui->breakpointPosition->setText(RAddressString(breakpoint.addr));
+        ui->breakpointPosition->setText(RzAddressString(breakpoint.addr));
         break;
     case BreakpointDescription::Named:
         ui->breakpointPosition->setText(breakpoint.positionExpression);
@@ -85,9 +86,9 @@ BreakpointsDialog::BreakpointsDialog(const BreakpointDescription &breakpoint, QW
     ui->breakpointCondition->setEditText(breakpoint.condition);
     if (breakpoint.hw) {
         ui->radioHardware->setChecked(true);
-        ui->hwRead->setChecked(breakpoint.permission & R_BP_PROT_READ);
-        ui->hwWrite->setChecked(breakpoint.permission & R_BP_PROT_WRITE);
-        ui->hwExecute->setChecked(breakpoint.permission & R_BP_PROT_EXEC);
+        ui->hwRead->setChecked(breakpoint.permission & RZ_PERM_R);
+        ui->hwWrite->setChecked(breakpoint.permission & RZ_PERM_W);
+        ui->hwExecute->setChecked(breakpoint.permission & RZ_PERM_X);
         ui->breakpointSize->setCurrentText(QString::number(breakpoint.size));
     } else {
         ui->radioSoftware->setChecked(true);
@@ -101,7 +102,7 @@ BreakpointsDialog::BreakpointsDialog(RVA address, QWidget *parent)
     : BreakpointsDialog(false, parent)
 {
     if (address != RVA_INVALID) {
-        ui->breakpointPosition->setText(RAddressString(address));
+        ui->breakpointPosition->setText(RzAddressString(address));
     }
     refreshOkButton();
 }
@@ -111,7 +112,8 @@ BreakpointsDialog::~BreakpointsDialog() {}
 BreakpointDescription BreakpointsDialog::getDescription()
 {
     BreakpointDescription breakpoint;
-    auto positionType = ui->positionType->currentData().value<BreakpointDescription::PositionType>();
+    auto positionType =
+            ui->positionType->currentData().value<BreakpointDescription::PositionType>();
     switch (positionType) {
     case BreakpointDescription::Address:
         breakpoint.addr = Core()->math(ui->breakpointPosition->text());
@@ -167,7 +169,8 @@ void BreakpointsDialog::onTypeChanged()
     bool moduleEnabled = ui->positionType->currentData() == QVariant(BreakpointDescription::Module);
     ui->moduleLabel->setEnabled(moduleEnabled);
     ui->moduleName->setEnabled(moduleEnabled);
-    ui->breakpointPosition->setPlaceholderText(ui->positionType->currentData(Qt::ToolTipRole).toString());
+    ui->breakpointPosition->setPlaceholderText(
+            ui->positionType->currentData(Qt::ToolTipRole).toString());
 }
 
 void BreakpointsDialog::configureCheckboxRestrictions()
@@ -201,13 +204,13 @@ int BreakpointsDialog::getHwPermissions()
 {
     int result = 0;
     if (ui->hwRead->isChecked()) {
-        result |= R_BP_PROT_READ;
+        result |= RZ_PERM_R;
     }
     if (ui->hwWrite->isChecked()) {
-        result |= R_BP_PROT_WRITE;
+        result |= RZ_PERM_W;
     }
     if (ui->hwExecute->isChecked()) {
-        result |= R_BP_PROT_EXEC;
+        result |= RZ_PERM_X;
     }
     return result;
 }

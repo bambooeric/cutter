@@ -12,6 +12,7 @@
 #include <QShortcut>
 #include <QAction>
 
+#include <vector>
 
 class DisassemblyTextEdit;
 class DisassemblyScrollArea;
@@ -22,13 +23,24 @@ class DisassemblyWidget : public MemoryDockWidget
 {
     Q_OBJECT
 public:
-    explicit DisassemblyWidget(MainWindow *main, QAction *action = nullptr);
+    explicit DisassemblyWidget(MainWindow *main);
     QWidget *getTextWidget();
 
     static QString getWidgetType();
 
 public slots:
+    /**
+     * @brief Highlights the currently selected line and updates the
+     * highlighting of the same words under the cursor in the visible screen.
+     * This overrides all previous highlighting.
+     */
     void highlightCurrentLine();
+    /**
+     * @brief Adds the PC line highlighting to the other current highlighting.
+     * This should be called after highlightCurrentLine since that function
+     * overrides all previous highlighting.
+     */
+    void highlightPCLine();
     void showDisasContextMenu(const QPoint &pt);
     void fontsUpdatedSlot();
     void colorsUpdatedSlot();
@@ -39,7 +51,9 @@ public slots:
     QList<DisassemblyLine> getLines();
 
 protected slots:
-    void on_seekChanged(RVA offset);
+    void on_seekChanged(RVA offset, CutterCore::SeekHistoryType type);
+    void refreshIfInRange(RVA offset);
+    void instructionChanged(RVA offset);
     void refreshDisasm(RVA offset = RVA_INVALID);
 
     bool updateMaxLines();
@@ -70,10 +84,12 @@ private:
     RefreshDeferrer *disasmRefresh;
 
     RVA readCurrentDisassemblyOffset();
-    RVA readDisassemblyOffset(QTextCursor tc);
     bool eventFilter(QObject *obj, QEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     QString getWindowTitle() const override;
+
+    int topOffsetHistoryPos = 0;
+    QList<RVA> topOffsetHistory;
 
     QList<RVA> breakpoints;
 
@@ -86,7 +102,7 @@ private:
 
     void moveCursorRelative(bool up, bool page);
 
-    void jumpToOffsetUnderCursor(const QTextCursor&);
+    void jumpToOffsetUnderCursor(const QTextCursor &);
 };
 
 class DisassemblyScrollArea : public QAbstractScrollArea
@@ -107,22 +123,20 @@ private:
     void resetScrollBars();
 };
 
-
-class DisassemblyTextEdit: public QPlainTextEdit
+class DisassemblyTextEdit : public QPlainTextEdit
 {
     Q_OBJECT
 
 public:
     explicit DisassemblyTextEdit(QWidget *parent = nullptr)
-        : QPlainTextEdit(parent),
-          lockScroll(false) {}
-
-    void setLockScroll(bool lock)
+        : QPlainTextEdit(parent), lockScroll(false)
     {
-        this->lockScroll = lock;
     }
 
+    void setLockScroll(bool lock) { this->lockScroll = lock; }
+
     qreal textOffset() const;
+
 protected:
     bool viewportEvent(QEvent *event) override;
     void scrollContentsBy(int dx, int dy) override;
@@ -134,18 +148,53 @@ private:
 };
 
 /**
- * @class This class is used to draw the left pane of the disassembly
+ * This class is used to draw the left pane of the disassembly
  * widget. Its goal is to draw proper arrows for the jumps of the disassembly.
  */
-class DisassemblyLeftPanel: public QFrame
+class DisassemblyLeftPanel : public QFrame
 {
 public:
     DisassemblyLeftPanel(DisassemblyWidget *disas);
     void paintEvent(QPaintEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
+    void clearArrowFrom(RVA offset);
 
 private:
     DisassemblyWidget *disas;
+
+    struct Arrow
+    {
+        Arrow(RVA v1, RVA v2) : min(v1), max(v2), level(0), up(false)
+        {
+            if (min > max) {
+                std::swap(min, max);
+                up = true;
+            }
+        }
+
+        inline bool contains(RVA point) const { return min <= point && max >= point; }
+
+        inline bool intersects(const Arrow &other) const
+        {
+            return std::max(min, other.min) <= std::min(max, other.max);
+        }
+
+        ut64 length() const { return max - min; }
+
+        RVA jmpFromOffset() const { return up ? max : min; }
+
+        RVA jmpToffset() const { return up ? min : max; }
+
+        RVA min;
+        RVA max;
+        uint32_t level;
+        bool up;
+    };
+
+    const size_t arrowsSize = 128;
+    const uint32_t maxLevelBeforeFlush = 32;
+    RVA lastBeginOffset = 0;
+    std::vector<Arrow> arrows;
 };
 
 #endif // DISASSEMBLYWIDGET_H

@@ -16,14 +16,16 @@
 #include <array>
 #include <cmath>
 
-VisualNavbar::VisualNavbar(MainWindow *main, QWidget *parent) :
-    QToolBar(main),
-    graphicsView(new QGraphicsView),
-    seekGraphicsItem(nullptr),
-    PCGraphicsItem(nullptr),
-    main(main)
+VisualNavbar::VisualNavbar(MainWindow *main, QWidget *parent)
+    : QToolBar(main),
+      graphicsView(new QGraphicsView),
+      seekGraphicsItem(nullptr),
+      PCGraphicsItem(nullptr),
+      main(main)
 {
     Q_UNUSED(parent);
+
+    blockTooltip = false;
 
     setObjectName("visualNavbar");
     setWindowTitle(tr("Visual navigation bar"));
@@ -31,7 +33,8 @@ VisualNavbar::VisualNavbar(MainWindow *main, QWidget *parent) :
     setContentsMargins(0, 0, 0, 0);
     // If line below is used, with the dark theme the paintEvent is not called
     // and the result is wrong. Something to do with overwriting the style sheet :/
-    //setStyleSheet("QToolBar { border: 0px; border-bottom: 0px; border-top: 0px; border-width: 0px;}");
+    // setStyleSheet("QToolBar { border: 0px; border-bottom: 0px; border-top: 0px; border-width:
+    // 0px;}");
 
     /*
     QComboBox *addsCombo = new QComboBox();
@@ -40,13 +43,14 @@ VisualNavbar::VisualNavbar(MainWindow *main, QWidget *parent) :
     addsCombo->addItem("Marks");
     */
     addWidget(this->graphicsView);
-    //addWidget(addsCombo);
+    // addWidget(addsCombo);
 
-    connect(Core(), SIGNAL(seekChanged(RVA)), this, SLOT(on_seekChanged(RVA)));
-    connect(Core(), SIGNAL(registersChanged()), this, SLOT(drawPCCursor()));
-    connect(Core(), SIGNAL(refreshAll()), this, SLOT(fetchAndPaintData()));
-    connect(Core(), SIGNAL(functionsChanged()), this, SLOT(fetchAndPaintData()));
-    connect(Core(), SIGNAL(flagsChanged()), this, SLOT(fetchAndPaintData()));
+    connect(Core(), &CutterCore::seekChanged, this, &VisualNavbar::on_seekChanged);
+    connect(Core(), &CutterCore::registersChanged, this, &VisualNavbar::drawPCCursor);
+    connect(Core(), &CutterCore::refreshAll, this, &VisualNavbar::fetchAndPaintData);
+    connect(Core(), &CutterCore::functionsChanged, this, &VisualNavbar::fetchAndPaintData);
+    connect(Core(), &CutterCore::flagsChanged, this, &VisualNavbar::fetchAndPaintData);
+    connect(Core(), &CutterCore::globalVarsChanged, this, &VisualNavbar::fetchAndPaintData);
 
     graphicsScene = new QGraphicsScene(this);
 
@@ -58,7 +62,7 @@ VisualNavbar::VisualNavbar(MainWindow *main, QWidget *parent) :
     this->graphicsView->setMinimumHeight(15);
     this->graphicsView->setMaximumHeight(15);
     this->graphicsView->setFrameShape(QFrame::NoFrame);
-    this->graphicsView->setRenderHints(0);
+    this->graphicsView->setRenderHints({});
     this->graphicsView->setScene(graphicsScene);
     this->graphicsView->setRenderHints(QPainter::Antialiasing);
     this->graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -111,7 +115,34 @@ void VisualNavbar::fetchAndPaintData()
 
 void VisualNavbar::fetchStats()
 {
-    stats = Core()->getBlockStatistics(statsWidth);
+    static const ut64 blocksCount = 2048;
+
+    RzCoreLocked core(Core());
+    stats.reset(nullptr);
+    auto list = fromOwned(rz_core_get_boundaries_prot(core, -1, NULL, "search"));
+    if (!list) {
+        return;
+    }
+    RzListIter *iter;
+    RzIOMap *map;
+    ut64 from = UT64_MAX;
+    ut64 to = 0;
+    CutterRzListForeach (list.get(), iter, RzIOMap, map) {
+        ut64 f = rz_itv_begin(map->itv);
+        ut64 t = rz_itv_end(map->itv);
+        if (f < from) {
+            from = f;
+        }
+        if (t > to) {
+            to = t;
+        }
+    }
+    to--; // rz_core_analysis_get_stats takes inclusive ranges
+    if (to < from) {
+        return;
+    }
+    stats.reset(
+            rz_core_analysis_get_stats(core, from, to, RZ_MAX(1, (to + 1 - from) / blocksCount)));
 }
 
 enum class DataType : int { Empty, Code, String, Symbol, Count };
@@ -124,47 +155,55 @@ void VisualNavbar::updateGraphicsScene()
     PCGraphicsItem = nullptr;
     graphicsScene->setBackgroundBrush(QBrush(Config()->getColor("gui.navbar.empty")));
 
-    if (stats.to <= stats.from) {
+    if (!stats) {
         return;
     }
 
     int w = graphicsView->width();
     int h = graphicsView->height();
 
-    RVA totalSize = stats.to - stats.from;
-    RVA beginAddr = stats.from;
+    RVA totalSize = stats->to - stats->from + 1;
+    RVA beginAddr = stats->from;
 
-    double widthPerByte = (double)w / (double)totalSize;
-    auto xFromAddr = [widthPerByte, beginAddr] (RVA addr) -> double {
+    double widthPerByte = (double)w
+            / (double)(totalSize ? totalSize : pow(2.0, 64.0)); // account for overflow on 2^64
+    auto xFromAddr = [widthPerByte, beginAddr](RVA addr) -> double {
         return (addr - beginAddr) * widthPerByte;
     };
 
     std::array<QBrush, static_cast<int>(DataType::Count)> dataTypeBrushes;
-    dataTypeBrushes[static_cast<int>(DataType::Code)] = QBrush(Config()->getColor("gui.navbar.code"));
-    dataTypeBrushes[static_cast<int>(DataType::String)] = QBrush(Config()->getColor("gui.navbar.str"));
-    dataTypeBrushes[static_cast<int>(DataType::Symbol)] = QBrush(Config()->getColor("gui.navbar.sym"));
+    dataTypeBrushes[static_cast<int>(DataType::Code)] =
+            QBrush(Config()->getColor("gui.navbar.code"));
+    dataTypeBrushes[static_cast<int>(DataType::String)] =
+            QBrush(Config()->getColor("gui.navbar.str"));
+    dataTypeBrushes[static_cast<int>(DataType::Symbol)] =
+            QBrush(Config()->getColor("gui.navbar.sym"));
 
     DataType lastDataType = DataType::Empty;
     QGraphicsRectItem *dataItem = nullptr;
     QRectF dataItemRect(0.0, 0.0, 0.0, h);
-    for (const BlockDescription &block : stats.blocks) {
+    for (size_t i = 0; i < rz_vector_len(&stats->blocks); i++) {
+        RzCoreAnalysisStatsItem *block =
+                reinterpret_cast<RzCoreAnalysisStatsItem *>(rz_vector_index_ptr(&stats->blocks, i));
+        ut64 from = rz_core_analysis_stats_get_block_from(stats.get(), i);
+        ut64 to = rz_core_analysis_stats_get_block_to(stats.get(), i) + 1;
         // Keep track of where which memory segment is mapped so we are able to convert from
         // address to X coordinate and vice versa.
         XToAddress x2a;
-        x2a.x_start = xFromAddr(block.addr);
-        x2a.x_end = xFromAddr(block.addr + block.size);
-        x2a.address_from = block.addr;
-        x2a.address_to = block.addr + block.size;
+        x2a.x_start = xFromAddr(from);
+        x2a.x_end = xFromAddr(to);
+        x2a.address_from = from;
+        x2a.address_to = to;
         xToAddress.append(x2a);
 
         DataType dataType;
-        if (block.functions > 0) {
+        if (block->functions) {
             dataType = DataType::Code;
-        } else if (block.strings > 0) {
+        } else if (block->strings) {
             dataType = DataType::String;
-        } else if (block.symbols > 0) {
+        } else if (block->symbols) {
             dataType = DataType::Symbol;
-        } else if (block.inFunctions > 0) {
+        } else if (block->in_functions) {
             dataType = DataType::Code;
         } else {
             lastDataType = DataType::Empty;
@@ -172,7 +211,7 @@ void VisualNavbar::updateGraphicsScene()
         }
 
         if (dataType == lastDataType) {
-            double r = xFromAddr(block.addr + block.size);
+            double r = xFromAddr(to);
             if (r > dataItemRect.right()) {
                 dataItemRect.setRight(r);
                 dataItem->setRect(dataItemRect);
@@ -181,8 +220,8 @@ void VisualNavbar::updateGraphicsScene()
             continue;
         }
 
-        dataItemRect.setX(xFromAddr(block.addr));
-        dataItemRect.setRight(xFromAddr(block.addr + block.size));
+        dataItemRect.setX(xFromAddr(from));
+        dataItemRect.setRight(xFromAddr(to));
 
         dataItem = new QGraphicsRectItem();
         dataItem->setPen(Qt::NoPen);
@@ -218,7 +257,8 @@ void VisualNavbar::drawCursor(RVA addr, QColor color, QGraphicsRectItem *&graphi
 
 void VisualNavbar::drawPCCursor()
 {
-    drawCursor(Core()->getProgramCounterValue(), Config()->getColor("gui.navbar.pc"), PCGraphicsItem);
+    drawCursor(Core()->getProgramCounterValue(), Config()->getColor("gui.navbar.pc"),
+               PCGraphicsItem);
 }
 
 void VisualNavbar::drawSeekCursor()
@@ -235,10 +275,17 @@ void VisualNavbar::on_seekChanged(RVA addr)
 
 void VisualNavbar::mousePressEvent(QMouseEvent *event)
 {
-    qreal x = event->localPos().x();
+    if (blockTooltip) {
+        return;
+    }
+    qreal x = qhelpers::mouseEventPos(event).x();
     RVA address = localXToAddress(x);
     if (address != RVA_INVALID) {
-        QToolTip::showText(event->globalPos(), toolTipForAddress(address), this);
+        auto tooltipPos = qhelpers::mouseEventGlobalPos(event);
+        blockTooltip = true; // on Haiku, the below call sometimes triggers another mouseMoveEvent,
+                             // causing infinite recursion
+        QToolTip::showText(tooltipPos, toolTipForAddress(address), this, this->rect());
+        blockTooltip = false;
         if (event->buttons() & Qt::LeftButton) {
             event->accept();
             Core()->seek(address);
@@ -268,7 +315,8 @@ double VisualNavbar::addressToLocalX(RVA address)
 {
     for (const XToAddress &x2a : xToAddress) {
         if ((x2a.address_from <= address) && (address < x2a.address_to)) {
-            double offset = (double)(address - x2a.address_from) / (double)(x2a.address_to - x2a.address_from);
+            double offset = (double)(address - x2a.address_from)
+                    / (double)(x2a.address_to - x2a.address_from);
             double size = x2a.x_end - x2a.x_start;
             return x2a.x_start + (offset * size);
         }
@@ -290,7 +338,7 @@ QList<QString> VisualNavbar::sectionsForAddress(RVA address)
 
 QString VisualNavbar::toolTipForAddress(RVA address)
 {
-    QString ret = "Address: " + RAddressString(address);
+    QString ret = "Address: " + RzAddressString(address);
 
     // Don't append sections when a debug task is in progress to avoid freezing the interface
     if (Core()->isDebugTaskInProgress()) {

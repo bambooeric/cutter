@@ -8,11 +8,11 @@
 #include "QHeaderView"
 #include "QMenu"
 
-StackWidget::StackWidget(MainWindow *main, QAction *action) :
-    CutterDockWidget(main, action),
-    ui(new Ui::StackWidget),
-    menuText(this),
-    addressableItemContextMenu(this, main)
+StackWidget::StackWidget(MainWindow *main)
+    : CutterDockWidget(main),
+      ui(new Ui::StackWidget),
+      menuText(this),
+      addressableItemContextMenu(this, main)
 {
     ui->setupUi(this);
 
@@ -26,26 +26,27 @@ StackWidget::StackWidget(MainWindow *main, QAction *action) :
     viewStack->setAutoScroll(false);
     viewStack->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     ui->verticalLayout->addWidget(viewStack);
-    viewStack->setEditTriggers(viewStack->editTriggers() &
-                               ~(QAbstractItemView::DoubleClicked | QAbstractItemView::AnyKeyPressed));
+    viewStack->setEditTriggers(
+            viewStack->editTriggers()
+            & ~(QAbstractItemView::DoubleClicked | QAbstractItemView::AnyKeyPressed));
 
     editAction = new QAction(tr("Edit stack value..."), this);
     viewStack->setContextMenuPolicy(Qt::CustomContextMenu);
 
-    refreshDeferrer = createRefreshDeferrer([this]() {
-        updateContents();
-    });
+    refreshDeferrer = createRefreshDeferrer([this]() { updateContents(); });
 
     connect(Core(), &CutterCore::refreshAll, this, &StackWidget::updateContents);
     connect(Core(), &CutterCore::registersChanged, this, &StackWidget::updateContents);
     connect(Core(), &CutterCore::stackChanged, this, &StackWidget::updateContents);
+    connect(Core(), &CutterCore::commentsChanged, this,
+            [this]() { qhelpers::emitColumnChanged(modelStack, StackModel::CommentColumn); });
     connect(Config(), &Configuration::fontsUpdated, this, &StackWidget::fontsUpdatedSlot);
-    connect(viewStack, SIGNAL(doubleClicked(const QModelIndex &)), this,
-            SLOT(onDoubleClicked(const QModelIndex &)));
-    connect(viewStack, SIGNAL(customContextMenuRequested(QPoint)), SLOT(customMenuRequested(QPoint)));
+    connect(viewStack, &QAbstractItemView::doubleClicked, this, &StackWidget::onDoubleClicked);
+    connect(viewStack, &QWidget::customContextMenuRequested, this,
+            &StackWidget::customMenuRequested);
     connect(editAction, &QAction::triggered, this, &StackWidget::editStack);
-    connect(viewStack->selectionModel(), &QItemSelectionModel::currentChanged,
-            this, &StackWidget::onCurrentChanged);
+    connect(viewStack->selectionModel(), &QItemSelectionModel::currentChanged, this,
+            &StackWidget::onCurrentChanged);
 
     addressableItemContextMenu.addAction(editAction);
     addActions(addressableItemContextMenu.actions());
@@ -127,7 +128,8 @@ void StackWidget::onCurrentChanged(const QModelIndex &current, const QModelIndex
     if (currentIndex.column() != StackModel::DescriptionColumn) {
         offsetString = currentIndex.data().toString();
     } else {
-        offsetString = currentIndex.sibling(currentIndex.row(), StackModel::ValueColumn).data().toString();
+        offsetString =
+                currentIndex.sibling(currentIndex.row(), StackModel::ValueColumn).data().toString();
     }
 
     RVA offset = Core()->math(offsetString);
@@ -139,23 +141,22 @@ void StackWidget::onCurrentChanged(const QModelIndex &current, const QModelIndex
     }
 }
 
-StackModel::StackModel(QObject *parent)
-    : QAbstractTableModel(parent)
-{
-}
+StackModel::StackModel(QObject *parent) : QAbstractTableModel(parent) {}
 
 void StackModel::reload()
 {
-    QList<QJsonObject> stackItems = Core()->getStack();
+    QList<AddrRefs> stackItems = Core()->getStack();
 
     beginResetModel();
     values.clear();
-    for (const QJsonObject &stackItem : stackItems) {
+    for (const AddrRefs &stackItem : stackItems) {
         Item item;
 
-        item.offset = stackItem["addr"].toVariant().toULongLong();
-        item.value = RAddressString(stackItem["value"].toVariant().toULongLong());
-        item.refDesc = Core()->formatRefDesc(stackItem["ref"].toObject());
+        item.offset = stackItem.addr;
+        item.value = RzAddressString(stackItem.value);
+        if (!stackItem.ref.isNull()) {
+            item.refDesc = Core()->formatRefDesc(stackItem.ref);
+        }
 
         values.push_back(item);
     }
@@ -183,11 +184,13 @@ QVariant StackModel::data(const QModelIndex &index, int role) const
     case Qt::DisplayRole:
         switch (index.column()) {
         case OffsetColumn:
-            return RAddressString(item.offset);
+            return RzAddressString(item.offset);
         case ValueColumn:
             return item.value;
         case DescriptionColumn:
             return item.refDesc.ref;
+        case CommentColumn:
+            return Core()->getCommentAt(item.offset);
         default:
             return QVariant();
         }
@@ -217,6 +220,8 @@ QVariant StackModel::headerData(int section, Qt::Orientation orientation, int ro
             return tr("Value");
         case DescriptionColumn:
             return tr("Reference");
+        case CommentColumn:
+            return tr("Comment");
         default:
             return QVariant();
         }

@@ -17,8 +17,7 @@ class MainWindow;
 class QTreeWidgetItem;
 class FlagsWidget;
 
-
-class FlagsModel: public AddressableItemModel<QAbstractListModel>
+class FlagsModel : public AddressableItemModel<QAbstractListModel>
 {
     friend FlagsWidget;
 
@@ -26,7 +25,7 @@ private:
     QList<FlagDescription> *flags;
 
 public:
-    enum Columns { OFFSET = 0, SIZE, NAME, REALNAME, COUNT };
+    enum Columns { OFFSET = 0, SIZE, NAME, REALNAME, COMMENT, COUNT };
     static const int FlagDescriptionRole = Qt::UserRole;
 
     FlagsModel(QList<FlagDescription> *flags, QObject *parent = nullptr);
@@ -44,8 +43,6 @@ public:
     const FlagDescription *description(QModelIndex index) const;
 };
 
-
-
 class FlagsSortFilterProxyModel : public AddressableFilterProxyModel
 {
     Q_OBJECT
@@ -58,8 +55,6 @@ protected:
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
 };
 
-
-
 namespace Ui {
 class FlagsWidget;
 }
@@ -69,7 +64,7 @@ class FlagsWidget : public CutterDockWidget
     Q_OBJECT
 
 public:
-    explicit FlagsWidget(MainWindow *main, QAction *action = nullptr);
+    explicit FlagsWidget(MainWindow *main);
     ~FlagsWidget();
 
 private slots:

@@ -1,7 +1,9 @@
 #ifndef DASHBOARD_H
 #define DASHBOARD_H
 
+#include <QFormLayout>
 #include <memory>
+#include "core/Cutter.h"
 #include "CutterDockWidget.h"
 
 QT_BEGIN_NAMESPACE
@@ -20,7 +22,7 @@ class Dashboard : public CutterDockWidget
     Q_OBJECT
 
 public:
-    explicit Dashboard(MainWindow *main, QAction *action = nullptr);
+    explicit Dashboard(MainWindow *main);
     ~Dashboard();
 
 private slots:
@@ -29,9 +31,12 @@ private slots:
     void on_versioninfoButton_clicked();
 
 private:
-    std::unique_ptr<Ui::Dashboard>   ui;
+    std::unique_ptr<Ui::Dashboard> ui;
     void setPlainText(QLineEdit *textBox, const QString &text);
-    void setBool(QLineEdit *textBox, const QJsonObject &jsonObject, const QString &key);
+    void setRzBinInfo(const RzBinInfo *binInfo);
+    const char *setBoolText(bool value);
+
+    QWidget *hashesWidget = nullptr;
 };
 
 #endif // DASHBOARD_H

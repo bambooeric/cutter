@@ -11,8 +11,7 @@
 #include <QPushButton>
 
 AddressableItemContextMenu::AddressableItemContextMenu(QWidget *parent, MainWindow *mainWindow)
-    : QMenu(parent)
-    , mainWindow(mainWindow)
+    : QMenu(parent), mainWindow(mainWindow)
 {
     actionShowInMenu = new QAction(tr("Show in"), this);
     actionCopyAddress = new QAction(tr("Copy address"), this);
@@ -21,17 +20,17 @@ AddressableItemContextMenu::AddressableItemContextMenu(QWidget *parent, MainWind
 
     connect(actionCopyAddress, &QAction::triggered, this,
             &AddressableItemContextMenu::onActionCopyAddress);
-    actionCopyAddress->setShortcuts({Qt::CTRL + Qt::SHIFT + Qt::Key_C});
+    actionCopyAddress->setShortcuts({ Qt::CTRL | Qt::SHIFT | Qt::Key_C });
     actionCopyAddress->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
 
     connect(actionShowXrefs, &QAction::triggered, this,
             &AddressableItemContextMenu::onActionShowXrefs);
-    actionShowXrefs->setShortcut({Qt::Key_X});
+    actionShowXrefs->setShortcut({ Qt::Key_X });
     actionShowXrefs->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
 
     connect(actionAddcomment, &QAction::triggered, this,
             &AddressableItemContextMenu::onActionAddComment);
-    actionAddcomment->setShortcut({Qt::Key_Semicolon});
+    actionAddcomment->setShortcut({ Qt::Key_Semicolon });
     actionAddcomment->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
 
     addAction(actionShowInMenu);
@@ -50,9 +49,7 @@ AddressableItemContextMenu::AddressableItemContextMenu(QWidget *parent, MainWind
     connect(this, &QMenu::aboutToShow, this, &AddressableItemContextMenu::aboutToShowSlot);
 }
 
-AddressableItemContextMenu::~AddressableItemContextMenu()
-{
-}
+AddressableItemContextMenu::~AddressableItemContextMenu() {}
 
 void AddressableItemContextMenu::setWholeFunction(bool wholeFunciton)
 {
@@ -79,16 +76,16 @@ void AddressableItemContextMenu::clearTarget()
 void AddressableItemContextMenu::onActionCopyAddress()
 {
     auto clipboard = QApplication::clipboard();
-    clipboard->setText(RAddressString(offset));
+    clipboard->setText(RzAddressString(offset));
 }
 
 void AddressableItemContextMenu::onActionShowXrefs()
 {
     emit xrefsTriggered();
-    XrefsDialog dialog(mainWindow, nullptr);
+    XrefsDialog dialog(mainWindow, true);
     QString tmpName = name;
     if (name.isEmpty()) {
-        name = RAddressString(offset);
+        name = RzAddressString(offset);
     }
     dialog.fillRefsForAddress(offset, name, wholeFunction);
     dialog.exec();
@@ -115,8 +112,8 @@ void AddressableItemContextMenu::aboutToShowSlot()
 void AddressableItemContextMenu::setHasTarget(bool hasTarget)
 {
     this->hasTarget = hasTarget;
-    for (const auto &action : this->actions()) {
-        action->setEnabled(hasTarget);
-    }
+    actionShowInMenu->setEnabled(hasTarget);
+    actionCopyAddress->setEnabled(hasTarget);
+    actionShowXrefs->setEnabled(hasTarget);
+    actionAddcomment->setEnabled(hasTarget);
 }
-

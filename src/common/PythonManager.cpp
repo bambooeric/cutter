@@ -1,5 +1,3 @@
-#ifdef CUTTER_ENABLE_PYTHON
-
 #include <cassert>
 
 #include "PythonAPI.h"
@@ -13,9 +11,13 @@
 #include <QDir>
 
 #ifdef CUTTER_ENABLE_PYTHON_BINDINGS
-#include <shiboken.h>
-#include <pyside.h>
-#include <signalmanager.h>
+#    include <shiboken.h>
+#    include <pyside.h>
+#    ifdef HAVE_PYSIDECLEANUP
+// This header is introduced in PySide 6
+#        include <pysidecleanup.h>
+#    endif
+#    include <signalmanager.h>
 #endif
 
 #include "QtResImporter.h"
@@ -30,29 +32,25 @@ PythonManager *PythonManager::getInstance()
     return uniqueInstance;
 }
 
-PythonManager::PythonManager()
-{
-}
+PythonManager::PythonManager() {}
 
-PythonManager::~PythonManager()
-{
-}
+PythonManager::~PythonManager() {}
 
 void PythonManager::initPythonHome()
 {
 #if defined(APPIMAGE) || defined(MACOS_PYTHON_FRAMEWORK_BUNDLED)
     if (customPythonHome.isNull()) {
         auto pythonHomeDir = QDir(QCoreApplication::applicationDirPath());
-#   ifdef APPIMAGE
+#    ifdef APPIMAGE
         // Executable is in appdir/bin
         pythonHomeDir.cdUp();
         qInfo() << "Setting PYTHONHOME =" << pythonHomeDir.absolutePath() << " for AppImage.";
-#   else // MACOS_PYTHON_FRAMEWORK_BUNDLED
+#    else // MACOS_PYTHON_FRAMEWORK_BUNDLED
         // @executable_path/../Frameworks/Python.framework/Versions/Current
         pythonHomeDir.cd("../Frameworks/Python.framework/Versions/Current");
-        qInfo() << "Setting PYTHONHOME =" << pythonHomeDir.absolutePath() <<
-                " for macOS Application Bundle.";
-#   endif
+        qInfo() << "Setting PYTHONHOME =" << pythonHomeDir.absolutePath()
+                << " for macOS Application Bundle.";
+#    endif
         customPythonHome = pythonHomeDir.absolutePath();
     }
 #endif
@@ -78,7 +76,10 @@ void PythonManager::initialize()
     PyImport_AppendInittab("CutterBindings", &PyInit_CutterBindings);
 #endif
     Py_Initialize();
+    // This function is deprecated does nothing starting from Python 3.9
+#if (PY_MAJOR_VERSION <= 3) && (PY_MICRO_VERSION < 9)
     PyEval_InitThreads();
+#endif
     pyThreadStateCounter = 1; // we have the thread now => 1
 
     RegQtResImporter();
@@ -87,11 +88,11 @@ void PythonManager::initialize()
 }
 
 #ifdef CUTTER_ENABLE_PYTHON_BINDINGS
-static void pySideDestructionVisitor(SbkObject* pyObj, void* data)
+static void pySideDestructionVisitor(SbkObject *pyObj, void *data)
 {
-    void **realData = reinterpret_cast<void**>(data);
-    auto pyQApp = reinterpret_cast<SbkObject*>(realData[0]);
-    auto pyQObjectType = reinterpret_cast<PyTypeObject*>(realData[1]);
+    void **realData = reinterpret_cast<void **>(data);
+    auto pyQApp = reinterpret_cast<SbkObject *>(realData[0]);
+    auto pyQObjectType = reinterpret_cast<PyTypeObject *>(realData[1]);
 
     if (pyObj == pyQApp || !PyObject_TypeCheck(pyObj, pyQObjectType)) {
         return;
@@ -114,8 +115,8 @@ static void pySideDestructionVisitor(SbkObject* pyObj, void* data)
     }
 
     Shiboken::Object::setValidCpp(pyObj, false);
-    Py_BEGIN_ALLOW_THREADS
-    Shiboken::callCppDestructor<QObject>(Shiboken::Object::cppPointer(pyObj, pyQObjectType));
+    Py_BEGIN_ALLOW_THREADS Shiboken::callCppDestructor<QObject>(
+            Shiboken::Object::cppPointer(pyObj, pyQObjectType));
     Py_END_ALLOW_THREADS
 };
 #endif
@@ -127,15 +128,16 @@ void PythonManager::shutdown()
     restoreThread();
 
 #ifdef CUTTER_ENABLE_PYTHON_BINDINGS
-    // This is necessary to prevent a segfault when the CutterCore instance is deleted after the Shiboken::BindingManager
+    // This is necessary to prevent a segfault when the CutterCore instance is deleted after the
+    // Shiboken::BindingManager
     Core()->setProperty("_PySideInvalidatePtr", QVariant());
 
     // see PySide::destroyQCoreApplication()
     PySide::SignalManager::instance().clear();
-    Shiboken::BindingManager& bm = Shiboken::BindingManager::instance();
-    SbkObject* pyQApp = bm.retrieveWrapper(QCoreApplication::instance());
-    PyTypeObject* pyQObjectType = Shiboken::Conversions::getPythonTypeObject("QObject*");
-    void* data[2] = {pyQApp, pyQObjectType};
+    Shiboken::BindingManager &bm = Shiboken::BindingManager::instance();
+    SbkObject *pyQApp = bm.retrieveWrapper(QCoreApplication::instance());
+    PyTypeObject *pyQObjectType = Shiboken::Conversions::getPythonTypeObject("QObject*");
+    void *data[2] = { pyQApp, pyQObjectType };
     bm.visitAllPyObjects(&pySideDestructionVisitor, &data);
 
     PySide::runCleanupFunctions();
@@ -148,7 +150,8 @@ void PythonManager::shutdown()
     Py_Finalize();
 }
 
-void PythonManager::addPythonPath(char *path) {
+void PythonManager::addPythonPath(char *path)
+{
     restoreThread();
 
     PyObject *sysModule = PyImport_ImportModule("sys");
@@ -163,7 +166,7 @@ void PythonManager::addPythonPath(char *path) {
     if (!append) {
         return;
     }
-    PyEval_CallFunction(append, "(s)", path);
+    PyObject_CallFunction(append, "(s)", path);
 
     saveThread();
 }
@@ -184,5 +187,3 @@ void PythonManager::saveThread()
         pyThreadState = PyEval_SaveThread();
     }
 }
-
-#endif

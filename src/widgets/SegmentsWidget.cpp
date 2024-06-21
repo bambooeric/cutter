@@ -7,8 +7,7 @@
 #include <QShortcut>
 
 SegmentsModel::SegmentsModel(QList<SegmentDescription> *segments, QObject *parent)
-    : AddressableItemModel<QAbstractListModel>(parent),
-      segments(segments)
+    : AddressableItemModel<QAbstractListModel>(parent), segments(segments)
 {
 }
 
@@ -25,18 +24,19 @@ int SegmentsModel::columnCount(const QModelIndex &) const
 QVariant SegmentsModel::data(const QModelIndex &index, int role) const
 {
     // TODO: create unique colors, e. g. use HSV color space and rotate in H for 360/size
-    static const QList<QColor> colors = { QColor("#1ABC9C"),    //TURQUOISE
-                                          QColor("#2ECC71"),    //EMERALD
-                                          QColor("#3498DB"),    //PETER RIVER
-                                          QColor("#9B59B6"),    //AMETHYST
-                                          QColor("#34495E"),    //WET ASPHALT
-                                          QColor("#F1C40F"),    //SUN FLOWER
-                                          QColor("#E67E22"),    //CARROT
-                                          QColor("#E74C3C"),    //ALIZARIN
-                                          QColor("#ECF0F1"),    //CLOUDS
-                                          QColor("#BDC3C7"),    //SILVER
-                                          QColor("#95A5A6")     //COBCRETE
-                                        };
+    static const QList<QColor> colors = {
+        QColor("#1ABC9C"), // TURQUOISE
+        QColor("#2ECC71"), // EMERALD
+        QColor("#3498DB"), // PETER RIVER
+        QColor("#9B59B6"), // AMETHYST
+        QColor("#34495E"), // WET ASPHALT
+        QColor("#F1C40F"), // SUN FLOWER
+        QColor("#E67E22"), // CARROT
+        QColor("#E74C3C"), // ALIZARIN
+        QColor("#ECF0F1"), // CLOUDS
+        QColor("#BDC3C7"), // SILVER
+        QColor("#95A5A6") // COBCRETE
+    };
 
     if (index.row() >= segments->count())
         return QVariant();
@@ -51,11 +51,13 @@ QVariant SegmentsModel::data(const QModelIndex &index, int role) const
         case SegmentsModel::SizeColumn:
             return QString::number(segment.size);
         case SegmentsModel::AddressColumn:
-            return RAddressString(segment.vaddr);
+            return RzAddressString(segment.vaddr);
         case SegmentsModel::EndAddressColumn:
-            return RAddressString(segment.vaddr + segment.size);
+            return RzAddressString(segment.vaddr + segment.size);
         case SegmentsModel::PermColumn:
             return segment.perm;
+        case SegmentsModel::CommentColumn:
+            return Core()->getCommentAt(segment.vaddr);
         default:
             return QVariant();
         }
@@ -85,6 +87,8 @@ QVariant SegmentsModel::headerData(int segment, Qt::Orientation, int role) const
             return tr("End Address");
         case SegmentsModel::PermColumn:
             return tr("Permissions");
+        case SegmentsModel::CommentColumn:
+            return tr("Comment");
         default:
             return QVariant();
         }
@@ -115,7 +119,8 @@ SegmentsProxyModel::SegmentsProxyModel(SegmentsModel *sourceModel, QObject *pare
 bool SegmentsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
 {
     auto leftSegment = left.data(SegmentsModel::SegmentDescriptionRole).value<SegmentDescription>();
-    auto rightSegment = right.data(SegmentsModel::SegmentDescriptionRole).value<SegmentDescription>();
+    auto rightSegment =
+            right.data(SegmentsModel::SegmentDescriptionRole).value<SegmentDescription>();
     switch (left.column()) {
     case SegmentsModel::NameColumn:
         return leftSegment.name < rightSegment.name;
@@ -124,14 +129,15 @@ bool SegmentsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &ri
     case SegmentsModel::AddressColumn:
     case SegmentsModel::EndAddressColumn:
         return leftSegment.vaddr < rightSegment.vaddr;
+    case SegmentsModel::CommentColumn:
+        return Core()->getCommentAt(leftSegment.vaddr) < Core()->getCommentAt(rightSegment.vaddr);
     default:
         break;
     }
     return false;
 }
 
-SegmentsWidget::SegmentsWidget(MainWindow *main, QAction *action) :
-    ListDockWidget(main, action)
+SegmentsWidget::SegmentsWidget(MainWindow *main) : ListDockWidget(main)
 {
     setObjectName("SegmentsWidget");
     setWindowTitle(QStringLiteral("Segments"));
@@ -147,6 +153,8 @@ SegmentsWidget::SegmentsWidget(MainWindow *main, QAction *action) :
 
     connect(Core(), &CutterCore::refreshAll, this, &SegmentsWidget::refreshSegments);
     connect(Core(), &CutterCore::codeRebased, this, &SegmentsWidget::refreshSegments);
+    connect(Core(), &CutterCore::commentsChanged, this,
+            [this]() { qhelpers::emitColumnChanged(segmentsModel, SegmentsModel::CommentColumn); });
 }
 
 SegmentsWidget::~SegmentsWidget() {}

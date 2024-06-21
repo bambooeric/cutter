@@ -31,7 +31,13 @@ class ThreadsWidget : public CutterDockWidget
     Q_OBJECT
 
 public:
-    explicit ThreadsWidget(MainWindow *main, QAction *action = nullptr);
+    enum ColumnIndex {
+        COLUMN_PID = 0,
+        COLUMN_STATUS,
+        COLUMN_PATH,
+    };
+
+    explicit ThreadsWidget(MainWindow *main);
     ~ThreadsWidget();
 
 private slots:
@@ -41,7 +47,7 @@ private slots:
     void onActivated(const QModelIndex &index);
 
 private:
-    QString translateStatus(QString status);
+    QString translateStatus(const char status);
     std::unique_ptr<Ui::ThreadsWidget> ui;
     QStandardItemModel *modelThreads;
     ThreadsFilterModel *modelFilter;

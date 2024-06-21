@@ -106,64 +106,6 @@
                  <verstretch>0</verstretch>
                 </sizepolicy>
                </property>
-               <property name="currentText">
-                <string>Disassembly</string>
-               </property>
-               <item>
-                <property name="text">
-                 <string>Disassembly</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>String</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Assembler</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>C bytes</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>C half-words (2 byte)</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>C words (4 byte)</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>C dwords (8 byte)</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Python</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>JSON</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>JavaScript</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Yara</string>
-                </property>
-               </item>
               </widget>
              </item>
              <item>
@@ -182,7 +124,7 @@
              <item>
               <widget class="QComboBox" name="parseEndianComboBox">
                <property name="sizeAdjustPolicy">
-                <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+                <enum>QComboBox::AdjustToContents</enum>
                </property>
                <item>
                 <property name="text">
@@ -259,7 +201,7 @@
                  </sizepolicy>
                 </property>
                 <property name="sizeAdjustPolicy">
-                 <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+                 <enum>QComboBox::AdjustToContents</enum>
                 </property>
                 <property name="frame">
                  <bool>false</bool>
@@ -282,7 +224,7 @@
               <item>
                <widget class="QComboBox" name="parseBitsComboBox">
                 <property name="sizeAdjustPolicy">
-                 <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+                 <enum>QComboBox::AdjustToContents</enum>
                 </property>
                 <item>
                  <property name="text">
@@ -323,6 +265,9 @@
              </property>
              <property name="lineWidth">
               <number>0</number>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
              </property>
              <property name="plainText">
               <string/>

@@ -42,7 +42,7 @@
        <enum>QFrame::Plain</enum>
       </property>
       <property name="verticalScrollBarPolicy">
-       <enum>Qt::ScrollBarAlwaysOff</enum>
+       <enum>Qt::ScrollBarAsNeeded</enum>
       </property>
       <property name="horizontalScrollBarPolicy">
        <enum>Qt::ScrollBarAlwaysOff</enum>
@@ -1068,17 +1068,7 @@
                 <number>5</number>
                </property>
                <item>
-                <layout class="QFormLayout" name="formLayout_2">
-                 <property name="fieldGrowthPolicy">
-                  <enum>QFormLayout::ExpandingFieldsGrow</enum>
-                 </property>
-                 <property name="labelAlignment">
-                  <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-                 </property>
-                 <property name="verticalSpacing">
-                  <number>3</number>
-                 </property>
-                </layout>
+                <layout class="QVBoxLayout" name="hashesVerticalLayout"/>
                </item>
                <item>
                 <widget class="QLabel" name="label_9">
@@ -1341,10 +1331,33 @@
                  </item>
                 </layout>
                </item>
+               <item>
+                <spacer name="verticalSpacer_3">
+                 <property name="orientation">
+                  <enum>Qt::Vertical</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>40</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
               </layout>
              </item>
              <item>
-              <layout class="QVBoxLayout" name="verticalLayout_2"/>
+              <widget class="QPlainTextEdit" name="libraryList">
+               <property name="horizontalScrollBarPolicy">
+                <enum>Qt::ScrollBarAlwaysOff</enum>
+               </property>
+               <property name="lineWrapMode">
+                <enum>QPlainTextEdit::NoWrap</enum>
+               </property>
+               <property name="textInteractionFlags">
+                <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
+               </property>
+              </widget>
              </item>
             </layout>
            </item>

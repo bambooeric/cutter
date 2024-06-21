@@ -18,9 +18,9 @@
 static QAbstractItemView::ScrollMode scrollMode()
 {
     const bool use_scrollperpixel = true;
-    return use_scrollperpixel ? QAbstractItemView::ScrollPerPixel : QAbstractItemView::ScrollPerItem;
+    return use_scrollperpixel ? QAbstractItemView::ScrollPerPixel
+                              : QAbstractItemView::ScrollPerItem;
 }
-
 
 namespace qhelpers {
 
@@ -31,12 +31,12 @@ QString formatBytecount(const uint64_t bytecount)
     }
 
     const int exp = log(bytecount) / log(1024);
-    constexpr char suffixes[] = {' ', 'k', 'M', 'G', 'T', 'P', 'E'};
+    constexpr char suffixes[] = { ' ', 'k', 'M', 'G', 'T', 'P', 'E' };
 
     QString str;
     QTextStream stream(&str);
-    stream << qSetRealNumberPrecision(3) << bytecount / pow(1024, exp)
-           << ' ' << suffixes[exp] << 'B';
+    stream << qSetRealNumberPrecision(3) << bytecount / pow(1024, exp) << ' ' << suffixes[exp]
+           << 'B';
     return stream.readAll();
 }
 
@@ -145,14 +145,14 @@ SizePolicyMinMax forceHeight(QWidget *widget, int height)
 
 void SizePolicyMinMax::restoreWidth(QWidget *widget)
 {
-    widget->setSizePolicy(sizePolicy);
+    widget->setSizePolicy(sizePolicy.horizontalPolicy(), widget->sizePolicy().verticalPolicy());
     widget->setMinimumWidth(min);
     widget->setMaximumWidth(max);
 }
 
 void SizePolicyMinMax::restoreHeight(QWidget *widget)
 {
-    widget->setSizePolicy(sizePolicy);
+    widget->setSizePolicy(widget->sizePolicy().horizontalPolicy(), sizePolicy.verticalPolicy());
     widget->setMinimumHeight(min);
     widget->setMaximumHeight(max);
 }
@@ -161,25 +161,24 @@ int getMaxFullyDisplayedLines(QTextEdit *textEdit)
 {
     QFontMetrics fontMetrics(textEdit->document()->defaultFont());
     return (textEdit->height()
-            - (textEdit->contentsMargins().top()
-               + textEdit->contentsMargins().bottom()
+            - (textEdit->contentsMargins().top() + textEdit->contentsMargins().bottom()
                + (int)(textEdit->document()->documentMargin() * 2)))
-           / fontMetrics.lineSpacing();
+            / fontMetrics.lineSpacing();
 }
 
 int getMaxFullyDisplayedLines(QPlainTextEdit *plainTextEdit)
 {
     QFontMetrics fontMetrics(plainTextEdit->document()->defaultFont());
     return (plainTextEdit->height()
-            - (plainTextEdit->contentsMargins().top()
-               + plainTextEdit->contentsMargins().bottom()
+            - (plainTextEdit->contentsMargins().top() + plainTextEdit->contentsMargins().bottom()
                + (int)(plainTextEdit->document()->documentMargin() * 2)))
-           / fontMetrics.lineSpacing();
+            / fontMetrics.lineSpacing();
 }
 
 QByteArray applyColorToSvg(const QByteArray &data, QColor color)
 {
-    static const QRegularExpression styleRegExp("(?:style=\".*fill:(.*?);.*?\")|(?:fill=\"(.*?)\")");
+    static const QRegularExpression styleRegExp(
+            "(?:style=\".*fill:(.*?);.*?\")|(?:fill=\"(.*?)\")");
 
     QString replaceStr = QString("#%1").arg(color.rgb() & 0xffffff, 6, 16, QLatin1Char('0'));
     int replaceStrLen = replaceStr.length();
@@ -194,7 +193,8 @@ QByteArray applyColorToSvg(const QByteArray &data, QColor color)
         }
 
         int captureIndex = match.captured(1).isNull() ? 2 : 1;
-        xml.replace(match.capturedStart(captureIndex), match.capturedLength(captureIndex), replaceStr);
+        xml.replace(match.capturedStart(captureIndex), match.capturedLength(captureIndex),
+                    replaceStr);
         offset = match.capturedStart(captureIndex) + replaceStrLen;
     }
 
@@ -210,11 +210,12 @@ QByteArray applyColorToSvg(const QString &filename, QColor color)
 }
 
 /**
- * @brief finds the theme-specific icon path and calls `setter` functor providing a pointer of an object which has to be used
- * and loaded icon
+ * @brief finds the theme-specific icon path and calls `setter` functor providing a pointer of an
+ * object which has to be used and loaded icon
  * @param supportedIconsNames list of <object ptr, icon name>
  * @param setter functor which has to be called
- *   for example we need to set an action icon, the functor can be just [](void* o, const QIcon &icon) { static_cast<QAction*>(o)->setIcon(icon); }
+ *   for example we need to set an action icon, the functor can be just [](void* o, const QIcon
+ * &icon) { static_cast<QAction*>(o)->setIcon(icon); }
  */
 void setThemeIcons(QList<QPair<void *, QString>> supportedIconsNames,
                    std::function<void(void *, const QIcon &)> setter)
@@ -232,7 +233,7 @@ void setThemeIcons(QList<QPair<void *, QString>> supportedIconsNames,
         iconPath = iconsDirPath;
         // Verify that indeed there is an alternative icon in this theme
         // Otherwise, fallback to the regular icon folder
-        if (QFile::exists(iconPath + relativeThemeDir +  p.second)) {
+        if (QFile::exists(iconPath + relativeThemeDir + p.second)) {
             iconPath += relativeThemeDir;
         }
         setter(p.first, QIcon(iconPath + p.second));
@@ -269,5 +270,39 @@ void selectIndexByData(QComboBox *widget, QVariant data, int defaultIndex)
     widget->setCurrentIndex(defaultIndex);
 }
 
+void emitColumnChanged(QAbstractItemModel *model, int column)
+{
+    if (model && model->rowCount()) {
+        emit model->dataChanged(model->index(0, column),
+                                model->index(model->rowCount() - 1, column), { Qt::DisplayRole });
+    }
+}
+
+bool filterStringContains(const QString &string, const QSortFilterProxyModel *model)
+{
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    return string.contains(model->filterRegExp());
+#else
+    return string.contains(model->filterRegularExpression());
+#endif
+}
+
+QPointF mouseEventPos(QMouseEvent *ev)
+{
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    return ev->localPos();
+#else
+    return ev->position();
+#endif
+}
+
+QPoint mouseEventGlobalPos(QMouseEvent *ev)
+{
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    return ev->globalPos();
+#else
+    return ev->globalPosition().toPoint();
+#endif
+}
 
 } // end namespace

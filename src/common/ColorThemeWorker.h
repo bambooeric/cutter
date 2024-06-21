@@ -5,6 +5,7 @@
 #include <QColor>
 #include <QObject>
 #include "Cutter.h"
+#include <QJsonDocument>
 #include <QJsonObject>
 
 #define ThemeWorker() (ColorThemeWorker::instance())
@@ -17,10 +18,7 @@ class ColorThemeWorker : public QObject
 {
     Q_OBJECT
 public:
-    /**
-     * @brief radare2SpecificOptions is list of all available radare2-only color options.
-     */
-    const QStringList radare2SpecificOptions = Core()->cmdj("ecj").object().keys();
+    typedef QHash<QString, QColor> Theme;
 
     /**
      * @brief cutterSpecificOptions is list of all available Cutter-only color options.
@@ -28,9 +26,9 @@ public:
     static const QStringList cutterSpecificOptions;
 
     /**
-     * @brief radare2UnusedOptions is a list of all radare2 options that Cutter does not use.
+     * @brief rizinUnusedOptions is a list of all Rizin options that Cutter does not use.
      */
-    static const QStringList radare2UnusedOptions;
+    static const QStringList rizinUnusedOptions;
 
     static ColorThemeWorker &instance()
     {
@@ -39,7 +37,6 @@ public:
     }
 
     virtual ~ColorThemeWorker() {}
-
 
     /**
      * @brief Copies @a srcThemeName with name @a copyThemeName.
@@ -59,10 +56,11 @@ public:
      * Name of theme to save.
      * @return "" on success or error message.
      */
-    QString save(const QJsonDocument& theme, const QString &themeName) const;
+    QString save(const Theme &theme, const QString &themeName) const;
 
     /**
-     * @brief Returns whether or not @a themeName theme is custom (created by user or imported) or not.
+     * @brief Returns whether or not @a themeName theme is custom (created by user or imported) or
+     * not.
      * @param themeName
      * Name of theme to check.
      */
@@ -75,11 +73,11 @@ public:
     bool isThemeExist(const QString &name) const;
 
     /**
-     * @brief Returns theme as Json where key is option name and value is array of 3 Ints (Red, Green, Blue).
+     * @brief Returns theme as QHash where key is option name and value is QColor.
      * @param themeName
      * Theme to get.
      */
-    QJsonDocument getTheme(const QString &themeName) const;
+    Theme getTheme(const QString &themeName) const;
 
     /**
      * @brief Deletes theme named @a themeName.
@@ -93,13 +91,13 @@ public:
      * @brief Imports theme from @a file.
      * @return "" on success or error message.
      */
-    QString importTheme(const QString& file) const;
+    QString importTheme(const QString &file) const;
 
     /**
      * @brief Renames theme from @a themeName to @a newName.
      * @return "" on success or error message.
      */
-    QString renameTheme(const QString& themeName, const QString& newName) const;
+    QString renameTheme(const QString &themeName, const QString &newName) const;
 
     /**
      * @brief Returns whether or not file at @a filePath is a color theme.
@@ -116,9 +114,19 @@ public:
      */
     QStringList customThemes() const;
 
+    QString getStandardThemesPath() { return standardRzThemesLocationPath; }
+    QString getCustomThemesPath() { return customRzThemesLocationPath; }
+
+    const QStringList &getRizinSpecificOptions();
+
 private:
-    QString standardR2ThemesLocationPath;
-    QString customR2ThemesLocationPath;
+    /**
+     * @brief list of all available Rizin-only color options.
+     */
+    QStringList rizinSpecificOptions;
+
+    QString standardRzThemesLocationPath;
+    QString customRzThemesLocationPath;
 
     ColorThemeWorker(QObject *parent = nullptr);
     ColorThemeWorker(const ColorThemeWorker &root) = delete;

@@ -9,14 +9,11 @@
 #include <QShortcut>
 #include <QTreeWidget>
 
-ImportsModel::ImportsModel(QList<ImportDescription> *imports, QObject *parent) :
-    AddressableItemModel(parent),
-    imports(imports)
-{}
+ImportsModel::ImportsModel(QObject *parent) : AddressableItemModel(parent) {}
 
 int ImportsModel::rowCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : imports->count();
+    return parent.isValid() ? 0 : imports.count();
 }
 
 int ImportsModel::columnCount(const QModelIndex &) const
@@ -26,7 +23,7 @@ int ImportsModel::columnCount(const QModelIndex &) const
 
 QVariant ImportsModel::data(const QModelIndex &index, int role) const
 {
-    const ImportDescription &import = imports->at(index.row());
+    const ImportDescription &import = imports.at(index.row());
     switch (role) {
     case Qt::ForegroundRole:
         if (index.column() < ImportsModel::ColumnCount) {
@@ -41,7 +38,7 @@ QVariant ImportsModel::data(const QModelIndex &index, int role) const
     case Qt::DisplayRole:
         switch (index.column()) {
         case ImportsModel::AddressColumn:
-            return RAddressString(import.plt);
+            return RzAddressString(import.plt);
         case ImportsModel::TypeColumn:
             return import.type;
         case ImportsModel::SafetyColumn:
@@ -50,6 +47,8 @@ QVariant ImportsModel::data(const QModelIndex &index, int role) const
             return import.libname;
         case ImportsModel::NameColumn:
             return import.name;
+        case ImportsModel::CommentColumn:
+            return Core()->getCommentAt(import.plt);
         default:
             break;
         }
@@ -78,6 +77,8 @@ QVariant ImportsModel::headerData(int section, Qt::Orientation, int role) const
             return tr("Library");
         case ImportsModel::NameColumn:
             return tr("Name");
+        case ImportsModel::CommentColumn:
+            return tr("Comment");
         default:
             break;
         }
@@ -87,20 +88,27 @@ QVariant ImportsModel::headerData(int section, Qt::Orientation, int role) const
 
 RVA ImportsModel::address(const QModelIndex &index) const
 {
-    const ImportDescription &import = imports->at(index.row());
+    const ImportDescription &import = imports.at(index.row());
     return import.plt;
 }
 
 QString ImportsModel::name(const QModelIndex &index) const
 {
-    const ImportDescription &import = imports->at(index.row());
+    const ImportDescription &import = imports.at(index.row());
     return import.name;
 }
 
 QString ImportsModel::libname(const QModelIndex &index) const
 {
-    const ImportDescription &import = imports->at(index.row());
+    const ImportDescription &import = imports.at(index.row());
     return import.libname;
+}
+
+void ImportsModel::reload()
+{
+    beginResetModel();
+    imports = Core()->getAllImports();
+    endResetModel();
 }
 
 ImportsProxyModel::ImportsProxyModel(ImportsModel *sourceModel, QObject *parent)
@@ -115,7 +123,7 @@ bool ImportsProxyModel::filterAcceptsRow(int row, const QModelIndex &parent) con
     QModelIndex index = sourceModel()->index(row, 0, parent);
     auto import = index.data(ImportsModel::ImportDescriptionRole).value<ImportDescription>();
 
-    return import.name.contains(filterRegExp());
+    return qhelpers::filterStringContains(import.name, this);
 }
 
 bool ImportsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
@@ -139,10 +147,12 @@ bool ImportsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
     case ImportsModel::LibraryColumn:
         if (leftImport.libname != rightImport.libname)
             return leftImport.libname < rightImport.libname;
-    // Fallthrough. Sort by Library and then by import name
+    // fallthrough
     case ImportsModel::NameColumn:
         return leftImport.name < rightImport.name;
-        
+    case ImportsModel::CommentColumn:
+        return Core()->getCommentAt(leftImport.plt) < Core()->getCommentAt(rightImport.plt);
+
     default:
         break;
     }
@@ -154,10 +164,10 @@ bool ImportsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
  * Imports Widget
  */
 
-ImportsWidget::ImportsWidget(MainWindow *main, QAction *action) :
-    ListDockWidget(main, action),
-    importsModel(new ImportsModel(&imports, this)),
-    importsProxyModel(new ImportsProxyModel(importsModel, this))
+ImportsWidget::ImportsWidget(MainWindow *main)
+    : ListDockWidget(main),
+      importsModel(new ImportsModel(this)),
+      importsProxyModel(new ImportsProxyModel(importsModel, this))
 {
     setWindowTitle(tr("Imports"));
     setObjectName("ImportsWidget");
@@ -166,21 +176,18 @@ ImportsWidget::ImportsWidget(MainWindow *main, QAction *action) :
     // Sort by library name by default to create a solid context per each group of imports
     ui->treeView->sortByColumn(ImportsModel::LibraryColumn, Qt::AscendingOrder);
     QShortcut *toggle_shortcut = new QShortcut(widgetShortcuts["ImportsWidget"], main);
-    connect(toggle_shortcut, &QShortcut::activated, this, [=] (){ 
-            toggleDockWidget(true); 
-            main->updateDockActionChecked(action);
-            } );
+    connect(toggle_shortcut, &QShortcut::activated, this, [=]() { toggleDockWidget(true); });
 
     connect(Core(), &CutterCore::codeRebased, this, &ImportsWidget::refreshImports);
     connect(Core(), &CutterCore::refreshAll, this, &ImportsWidget::refreshImports);
+    connect(Core(), &CutterCore::commentsChanged, this,
+            [this]() { qhelpers::emitColumnChanged(importsModel, ImportsModel::CommentColumn); });
 }
 
 ImportsWidget::~ImportsWidget() {}
 
 void ImportsWidget::refreshImports()
 {
-    importsModel->beginResetModel();
-    imports = Core()->getAllImports();
-    importsModel->endResetModel();
+    importsModel->reload();
     qhelpers::adjustColumns(ui->treeView, 4, 0);
 }

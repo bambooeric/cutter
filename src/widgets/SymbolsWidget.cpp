@@ -6,8 +6,7 @@
 #include <QShortcut>
 
 SymbolsModel::SymbolsModel(QList<SymbolDescription> *symbols, QObject *parent)
-    : AddressableItemModel<QAbstractListModel>(parent),
-      symbols(symbols)
+    : AddressableItemModel<QAbstractListModel>(parent), symbols(symbols)
 {
 }
 
@@ -33,11 +32,13 @@ QVariant SymbolsModel::data(const QModelIndex &index, int role) const
     case Qt::DisplayRole:
         switch (index.column()) {
         case SymbolsModel::AddressColumn:
-            return RAddressString(symbol.vaddr);
+            return RzAddressString(symbol.vaddr);
         case SymbolsModel::TypeColumn:
             return QString("%1 %2").arg(symbol.bind, symbol.type).trimmed();
         case SymbolsModel::NameColumn:
             return symbol.name;
+        case SymbolsModel::CommentColumn:
+            return Core()->getCommentAt(symbol.vaddr);
         default:
             return QVariant();
         }
@@ -59,6 +60,8 @@ QVariant SymbolsModel::headerData(int section, Qt::Orientation, int role) const
             return tr("Type");
         case SymbolsModel::NameColumn:
             return tr("Name");
+        case SymbolsModel::CommentColumn:
+            return tr("Comment");
         default:
             return QVariant();
         }
@@ -91,7 +94,7 @@ bool SymbolsProxyModel::filterAcceptsRow(int row, const QModelIndex &parent) con
     QModelIndex index = sourceModel()->index(row, 0, parent);
     auto symbol = index.data(SymbolsModel::SymbolDescriptionRole).value<SymbolDescription>();
 
-    return symbol.name.contains(filterRegExp());
+    return qhelpers::filterStringContains(symbol.name, this);
 }
 
 bool SymbolsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
@@ -106,6 +109,8 @@ bool SymbolsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
         return leftSymbol.type < rightSymbol.type;
     case SymbolsModel::NameColumn:
         return leftSymbol.name < rightSymbol.name;
+    case SymbolsModel::CommentColumn:
+        return Core()->getCommentAt(leftSymbol.vaddr) < Core()->getCommentAt(rightSymbol.vaddr);
     default:
         break;
     }
@@ -113,8 +118,7 @@ bool SymbolsProxyModel::lessThan(const QModelIndex &left, const QModelIndex &rig
     return false;
 }
 
-SymbolsWidget::SymbolsWidget(MainWindow *main, QAction *action) :
-    ListDockWidget(main, action)
+SymbolsWidget::SymbolsWidget(MainWindow *main) : ListDockWidget(main)
 {
     setWindowTitle(tr("Symbols"));
     setObjectName("SymbolsWidget");
@@ -126,6 +130,8 @@ SymbolsWidget::SymbolsWidget(MainWindow *main, QAction *action) :
 
     connect(Core(), &CutterCore::codeRebased, this, &SymbolsWidget::refreshSymbols);
     connect(Core(), &CutterCore::refreshAll, this, &SymbolsWidget::refreshSymbols);
+    connect(Core(), &CutterCore::commentsChanged, this,
+            [this]() { qhelpers::emitColumnChanged(symbolsModel, SymbolsModel::CommentColumn); });
 }
 
 SymbolsWidget::~SymbolsWidget() {}

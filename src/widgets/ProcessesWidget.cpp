@@ -3,31 +3,27 @@
 #include "ui_ProcessesWidget.h"
 #include "common/JsonModel.h"
 #include "QuickFilterView.h"
-#include <r_debug.h>
+#include <rz_debug.h>
 
 #include "core/MainWindow.h"
 
 #define DEBUGGED_PID (-1)
 
-enum ColumnIndex {
-    COLUMN_PID = 0,
-    COLUMN_UID,
-    COLUMN_STATUS,
-    COLUMN_PATH,
-};
-
-ProcessesWidget::ProcessesWidget(MainWindow *main, QAction *action) :
-    CutterDockWidget(main, action),
-    ui(new Ui::ProcessesWidget)
+ProcessesWidget::ProcessesWidget(MainWindow *main)
+    : CutterDockWidget(main), ui(new Ui::ProcessesWidget)
 {
     ui->setupUi(this);
 
     // Setup processes model
     modelProcesses = new QStandardItemModel(1, 4, this);
-    modelProcesses->setHorizontalHeaderItem(COLUMN_PID, new QStandardItem(tr("PID")));
-    modelProcesses->setHorizontalHeaderItem(COLUMN_UID, new QStandardItem(tr("UID")));
-    modelProcesses->setHorizontalHeaderItem(COLUMN_STATUS, new QStandardItem(tr("Status")));
-    modelProcesses->setHorizontalHeaderItem(COLUMN_PATH, new QStandardItem(tr("Path")));
+    modelProcesses->setHorizontalHeaderItem(ProcessesWidget::COLUMN_PID,
+                                            new QStandardItem(tr("PID")));
+    modelProcesses->setHorizontalHeaderItem(ProcessesWidget::COLUMN_UID,
+                                            new QStandardItem(tr("UID")));
+    modelProcesses->setHorizontalHeaderItem(ProcessesWidget::COLUMN_STATUS,
+                                            new QStandardItem(tr("Status")));
+    modelProcesses->setHorizontalHeaderItem(ProcessesWidget::COLUMN_PATH,
+                                            new QStandardItem(tr("Path")));
     ui->viewProcesses->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     ui->viewProcesses->verticalHeader()->setVisible(false);
     ui->viewProcesses->setFont(Config()->getFont());
@@ -38,7 +34,8 @@ ProcessesWidget::ProcessesWidget(MainWindow *main, QAction *action) :
 
     // CTRL+F switches to the filter view and opens it in case it's hidden
     QShortcut *searchShortcut = new QShortcut(QKeySequence::Find, this);
-    connect(searchShortcut, &QShortcut::activated, ui->quickFilterView, &QuickFilterView::showFilter);
+    connect(searchShortcut, &QShortcut::activated, ui->quickFilterView,
+            &QuickFilterView::showFilter);
     searchShortcut->setContext(Qt::WidgetWithChildrenShortcut);
 
     // ESC switches back to the processes table and clears the buffer
@@ -49,9 +46,7 @@ ProcessesWidget::ProcessesWidget(MainWindow *main, QAction *action) :
     });
     clearShortcut->setContext(Qt::WidgetWithChildrenShortcut);
 
-    refreshDeferrer = createRefreshDeferrer([this]() {
-        updateContents();
-    });
+    refreshDeferrer = createRefreshDeferrer([this]() { updateContents(); });
 
     connect(ui->quickFilterView, &QuickFilterView::filterTextChanged, modelFilter,
             &ProcessesFilterModel::setFilterWildcard);
@@ -86,20 +81,20 @@ void ProcessesWidget::updateContents()
     }
 }
 
-QString ProcessesWidget::translateStatus(QString status)
+QString ProcessesWidget::translateStatus(const char status)
 {
-    switch (status.toStdString().c_str()[0]) {
-    case R_DBG_PROC_STOP:
+    switch (status) {
+    case RZ_DBG_PROC_STOP:
         return "Stopped";
-    case R_DBG_PROC_RUN:
+    case RZ_DBG_PROC_RUN:
         return "Running";
-    case R_DBG_PROC_SLEEP:
+    case RZ_DBG_PROC_SLEEP:
         return "Sleeping";
-    case R_DBG_PROC_ZOMBIE:
+    case RZ_DBG_PROC_ZOMBIE:
         return "Zombie";
-    case R_DBG_PROC_DEAD:
+    case RZ_DBG_PROC_DEAD:
         return "Dead";
-    case R_DBG_PROC_RAISED:
+    case RZ_DBG_PROC_RAISED:
         return "Raised event";
     default:
         return "Unknown status";
@@ -108,17 +103,15 @@ QString ProcessesWidget::translateStatus(QString status)
 
 void ProcessesWidget::setProcessesGrid()
 {
-    QJsonArray processesValues = Core()->getChildProcesses(DEBUGGED_PID).array();
     int i = 0;
     QFont font;
 
-    for (const QJsonValue &value : processesValues) {
-        QJsonObject processesItem = value.toObject();
-        int pid = processesItem["pid"].toVariant().toInt();
-        int uid = processesItem["uid"].toVariant().toInt();
-        QString status = translateStatus(processesItem["status"].toString());
-        QString path = processesItem["path"].toString();
-        bool current = processesItem["current"].toBool();
+    for (const auto &processesItem : Core()->getProcessThreads(DEBUGGED_PID)) {
+        st64 pid = processesItem.pid;
+        st64 uid = processesItem.uid;
+        QString status = translateStatus(processesItem.status);
+        QString path = processesItem.path;
+        bool current = processesItem.current;
 
         // Use bold font to highlight active thread
         font.setBold(current);
@@ -133,10 +126,10 @@ void ProcessesWidget::setProcessesGrid()
         rowStatus->setFont(font);
         rowPath->setFont(font);
 
-        modelProcesses->setItem(i, COLUMN_PID, rowPid);
-        modelProcesses->setItem(i, COLUMN_UID, rowUid);
-        modelProcesses->setItem(i, COLUMN_STATUS, rowStatus);
-        modelProcesses->setItem(i, COLUMN_PATH, rowPath);
+        modelProcesses->setItem(i, ProcessesWidget::COLUMN_PID, rowPid);
+        modelProcesses->setItem(i, ProcessesWidget::COLUMN_UID, rowUid);
+        modelProcesses->setItem(i, ProcessesWidget::COLUMN_STATUS, rowStatus);
+        modelProcesses->setItem(i, ProcessesWidget::COLUMN_PATH, rowPath);
         i++;
     }
 
@@ -146,7 +139,7 @@ void ProcessesWidget::setProcessesGrid()
     }
 
     modelFilter->setSourceModel(modelProcesses);
-    ui->viewProcesses->resizeColumnsToContents();;
+    ui->viewProcesses->resizeColumnsToContents();
 }
 
 void ProcessesWidget::fontsUpdatedSlot()
@@ -159,30 +152,28 @@ void ProcessesWidget::onActivated(const QModelIndex &index)
     if (!index.isValid())
         return;
 
-    int pid = modelFilter->data(index.sibling(index.row(), COLUMN_PID)).toInt();
-
+    int pid = modelFilter->data(index.sibling(index.row(), ProcessesWidget::COLUMN_PID)).toInt();
     // Verify that the selected pid is still in the processes list since dp= will
     // attach to any given id. If it isn't found simply update the UI.
-    QJsonArray processesValues = Core()->getChildProcesses(DEBUGGED_PID).array();
-    for (QJsonValue value : processesValues) {
-        QString status = value.toObject()["status"].toString();
-        if (pid == value.toObject()["pid"].toInt()) {
-            if (QString(R_DBG_PROC_ZOMBIE) == status || QString(R_DBG_PROC_DEAD) == status) {
-                QMessageBox msgBox;
+    for (const auto &value : Core()->getAllProcesses()) {
+        if (pid == value.pid) {
+            QMessageBox msgBox;
+            switch (value.status) {
+            case RZ_DBG_PROC_ZOMBIE:
+            case RZ_DBG_PROC_DEAD:
                 msgBox.setText(tr("Unable to switch to the requested process."));
                 msgBox.exec();
-            } else {
+                break;
+            default:
                 Core()->setCurrentDebugProcess(pid);
+                break;
             }
-            break;
         }
     }
-
     updateContents();
 }
 
-ProcessesFilterModel::ProcessesFilterModel(QObject *parent)
-    : QSortFilterProxyModel(parent)
+ProcessesFilterModel::ProcessesFilterModel(QObject *parent) : QSortFilterProxyModel(parent)
 {
     setFilterCaseSensitivity(Qt::CaseInsensitive);
     setSortCaseSensitivity(Qt::CaseInsensitive);
@@ -191,9 +182,9 @@ ProcessesFilterModel::ProcessesFilterModel(QObject *parent)
 bool ProcessesFilterModel::filterAcceptsRow(int row, const QModelIndex &parent) const
 {
     // All columns are checked for a match
-    for (int i = COLUMN_PID; i <= COLUMN_PATH; ++i) {
+    for (int i = ProcessesWidget::COLUMN_PID; i <= ProcessesWidget::COLUMN_PATH; ++i) {
         QModelIndex index = sourceModel()->index(row, i, parent);
-        if (sourceModel()->data(index).toString().contains(filterRegExp())) {
+        if (qhelpers::filterStringContains(sourceModel()->data(index).toString(), this)) {
             return true;
         }
     }

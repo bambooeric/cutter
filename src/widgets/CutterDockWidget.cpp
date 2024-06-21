@@ -1,41 +1,49 @@
 #include "CutterDockWidget.h"
 #include "core/MainWindow.h"
 
-#include <QAction>
 #include <QEvent>
-#include <QtWidgets/QShortcut>
+#include <QShortcut>
 
-CutterDockWidget::CutterDockWidget(MainWindow *parent, QAction *action) :
-    QDockWidget(parent),
-    mainWindow(parent),
-    action(action)
+CutterDockWidget::CutterDockWidget(MainWindow *parent, QAction *) : CutterDockWidget(parent) {}
+
+CutterDockWidget::CutterDockWidget(MainWindow *parent) : QDockWidget(parent), mainWindow(parent)
 {
-    if (action) {
-        addAction(action);
-        connect(action, &QAction::triggered, this, &CutterDockWidget::toggleDockWidget);
-    }
-    if (parent) {
-        parent->addWidget(this);
-    }
-
     // Install event filter to catch redraw widgets when needed
     installEventFilter(this);
     updateIsVisibleToUser();
+    connect(toggleViewAction(), &QAction::triggered, this, &QWidget::raise);
 }
 
 CutterDockWidget::~CutterDockWidget() = default;
 
 bool CutterDockWidget::eventFilter(QObject *object, QEvent *event)
 {
-    if (event->type() == QEvent::FocusIn
-        || event->type() == QEvent::ZOrderChange
-        || event->type() == QEvent::Paint
-        || event->type() == QEvent::Close
-        || event->type() == QEvent::Show
-        || event->type() == QEvent::Hide) {
+    if (event->type() == QEvent::FocusIn || event->type() == QEvent::ZOrderChange
+        || event->type() == QEvent::Paint || event->type() == QEvent::Close
+        || event->type() == QEvent::Show || event->type() == QEvent::Hide) {
         updateIsVisibleToUser();
     }
     return QDockWidget::eventFilter(object, event);
+}
+
+QVariantMap CutterDockWidget::serializeViewProprties()
+{
+    return {};
+}
+
+void CutterDockWidget::deserializeViewProperties(const QVariantMap &) {}
+
+void CutterDockWidget::ignoreVisibilityStatus(bool ignore)
+{
+    this->ignoreVisibility = ignore;
+    updateIsVisibleToUser();
+}
+
+void CutterDockWidget::raiseMemoryWidget()
+{
+    show();
+    raise();
+    widgetToFocusOnRaise()->setFocus(Qt::FocusReason::TabFocusReason);
 }
 
 void CutterDockWidget::toggleDockWidget(bool show)
@@ -56,7 +64,7 @@ QWidget *CutterDockWidget::widgetToFocusOnRaise()
 void CutterDockWidget::updateIsVisibleToUser()
 {
     // Check if the user can actually see the widget.
-    bool visibleToUser = isVisible() && !visibleRegion().isEmpty();
+    bool visibleToUser = isVisible() && !visibleRegion().isEmpty() && !ignoreVisibility;
     if (visibleToUser == isVisibleToUserCurrent) {
         return;
     }
@@ -68,23 +76,20 @@ void CutterDockWidget::updateIsVisibleToUser()
 
 void CutterDockWidget::closeEvent(QCloseEvent *event)
 {
-    if (action) {
-        this->action->setChecked(false);
-    }
     QDockWidget::closeEvent(event);
     if (isTransient) {
         if (mainWindow) {
             mainWindow->removeWidget(this);
         }
+
+        // remove parent, otherwise dock layout may still decide to use this widget which is about
+        // to be deleted
+        setParent(nullptr);
+
         deleteLater();
     }
 
     emit closed();
-}
-
-QAction *CutterDockWidget::getBoundAction() const
-{
-    return action;
 }
 
 QString CutterDockWidget::getDockNumber()

@@ -31,7 +31,14 @@ class ProcessesWidget : public CutterDockWidget
     Q_OBJECT
 
 public:
-    explicit ProcessesWidget(MainWindow *main, QAction *action = nullptr);
+    enum ColumnIndex {
+        COLUMN_PID = 0,
+        COLUMN_UID,
+        COLUMN_STATUS,
+        COLUMN_PATH,
+    };
+
+    explicit ProcessesWidget(MainWindow *main);
     ~ProcessesWidget();
 
 private slots:
@@ -41,7 +48,7 @@ private slots:
     void onActivated(const QModelIndex &index);
 
 private:
-    QString translateStatus(QString status);
+    QString translateStatus(const char status);
     std::unique_ptr<Ui::ProcessesWidget> ui;
     QStandardItemModel *modelProcesses;
     ProcessesFilterModel *modelFilter;

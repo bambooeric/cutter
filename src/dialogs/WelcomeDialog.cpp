@@ -11,14 +11,13 @@
  * @brief Constructs a WelcomeDialog object
  * @param parent
  */
-WelcomeDialog::WelcomeDialog(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::WelcomeDialog)
+WelcomeDialog::WelcomeDialog(QWidget *parent) : QDialog(parent), ui(new Ui::WelcomeDialog)
 {
     ui->setupUi(this);
     setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
     ui->logoSvgWidget->load(Config()->getLogoFile());
-    ui->versionLabel->setText("<font color='#a4a9b2'>" + tr("Version ") + CUTTER_VERSION_FULL + "</font>");
+    ui->versionLabel->setText("<font color='#a4a9b2'>" + tr("Version ") + CUTTER_VERSION_FULL
+                              + "</font>");
     ui->themeComboBox->setCurrentIndex(Config()->getInterfaceTheme());
 
     QSignalBlocker s(ui->updatesCheckBox);
@@ -27,16 +26,15 @@ WelcomeDialog::WelcomeDialog(QWidget *parent) :
     QStringList langs = Config()->getAvailableTranslations();
     ui->languageComboBox->addItems(langs);
     QString curr = Config()->getCurrLocale().nativeLanguageName();
-    curr = curr.at(0).toUpper() + curr.right(curr.length() - 1);
     if (!langs.contains(curr)) {
         curr = "English";
     }
     ui->languageComboBox->setCurrentText(curr);
     connect(ui->languageComboBox,
-            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this,
+            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this,
             &WelcomeDialog::onLanguageComboBox_currentIndexChanged);
 
+    Config()->adjustColorThemeDarkness();
 }
 
 /**
@@ -55,11 +53,6 @@ void WelcomeDialog::on_themeComboBox_currentIndexChanged(int index)
 {
     Config()->setInterfaceTheme(index);
 
-    // use "ayu" as the default color theme for dark interface
-    if (Config()->windowColorIsDark()) {
-        Config()->setColorTheme("ayu");
-    }
-
     // make sure that Cutter's logo changes its color according to the selected theme
     ui->logoSvgWidget->load(Config()->getLogoFile());
 }
@@ -70,7 +63,7 @@ void WelcomeDialog::on_themeComboBox_currentIndexChanged(int index)
  */
 void WelcomeDialog::onLanguageComboBox_currentIndexChanged(int index)
 {
-    QString language = ui->languageComboBox->itemText(index).toLower();
+    QString language = ui->languageComboBox->itemText(index);
     Config()->setLocaleByName(language);
 
     QMessageBox mb;

@@ -8,9 +8,7 @@ namespace Ui {
 class EditInstructionDialog;
 }
 
-enum InstructionEditMode {
-    EDIT_NONE, EDIT_BYTES, EDIT_TEXT
-};
+enum InstructionEditMode { EDIT_NONE, EDIT_BYTES, EDIT_TEXT };
 
 class EditInstructionDialog : public QDialog
 {
@@ -22,17 +20,18 @@ public:
 
     QString getInstruction() const;
     void setInstruction(const QString &instruction);
+    bool needsNops() const;
 
 private slots:
     void on_buttonBox_accepted();
-
     void on_buttonBox_rejected();
 
     void updatePreview(const QString &input);
 
 private:
     std::unique_ptr<Ui::EditInstructionDialog> ui;
-    InstructionEditMode editMode; // true if editing intruction **bytes**; false if editing instruction **text**
+    // defines if the user is editing bytes or asm
+    InstructionEditMode editMode;
 };
 
 #endif // EDITINSTRUCTIONDIALOG_H
